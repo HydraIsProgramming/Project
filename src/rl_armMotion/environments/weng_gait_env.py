@@ -21,7 +21,7 @@ the ``info`` dictionary returned at each step to aid downstream logging.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, Optional, Tuple, Any
 
 import numpy as np
@@ -80,7 +80,7 @@ class PenaltySchedule:
 class WengGaitEnv(gym.Env):
     """Simplified gait environment inspired by Weng et al. (2021).
 
-    This environment wraps a 3D arm–torso model from the existing project to
+    This environment wraps a 3‑D arm–torso model from the existing project to
     expose a state, action and reward structure suitable for natural walking
     experiments.  It emphasises forward progress, energy efficiency,
     movement smoothness, joint safety and upright stability.  Three
@@ -191,7 +191,7 @@ class WengGaitEnv(gym.Env):
         self._success_counter: int = 0
         self._hold_required: int = 50  # steps required to consider success
         self.goal_tolerance: float = 0.05  # tolerance for end‑effector to target
-        # Target position for walking: 1 m ahead along X from shoulder base
+        # Target position for walking: 1 m ahead along X from shoulder base
         shoulder_base = np.asarray(self.config.shoulder_position, dtype=float)
         self.target_position: np.ndarray = shoulder_base + np.array([1.0, 0.0, 0.0], dtype=float)
 
@@ -277,7 +277,7 @@ class WengGaitEnv(gym.Env):
         # applied torque and integrate once to update angles.  Velocities are
         # updated implicitly via the controller API; this is a simplification
         # relative to a full dynamics model.
-        delta_angles = torque * float(self.config.dt) / (0.5 + 0.0)  # divide by pseudo‑inertia
+        delta_angles = torque * float(self.config.dt) / (0.5 + 0.0)  # divide by pseudo-inertia
         for j in range(self.num_joints):
             # Use ArmController3D to apply incremental angle changes.  It will
             # clamp to joint limits and update internal velocities.
@@ -306,7 +306,7 @@ class WengGaitEnv(gym.Env):
             reward += self.penalty_schedule.fall
 
         # Terminate if any joint limit is violated beyond clamp (the controller
-        # clamps joint angles, so here we penalise near‑limit angles instead)
+        # clamps joint angles, so here we penalise near-limit angles instead)
         angles = self.controller.angles
         mins, maxs = self.config.get_joint_limits_rad()
         # if any angle equals limit (with small epsilon), treat as unsafe
@@ -349,7 +349,7 @@ class WengGaitEnv(gym.Env):
         # position as being offset from the pelvis by ``self.config.shoulder_position``.
         pelvis_to_shoulder = np.asarray(self.config.shoulder_position, dtype=float)
         elbow_rel = pts[2] + pelvis_to_shoulder - root_pos
-        wrist_rel = (pts[3] + pelvis_to_shoulder - root_pos)  # end effector is treated as wrist
+        wrist_rel = pts[3] + pelvis_to_shoulder - root_pos  # end effector treated as wrist
         # In a 4‑DOF arm the end effector corresponds to the hand; there is no
         # explicit wrist joint.  We duplicate the end effector position for
         # completeness.
@@ -474,10 +474,10 @@ class WengGaitEnv(gym.Env):
     # Domain randomisation utilities
     def _randomise_physics(self) -> None:
         """Randomise link masses, joint damping and torque limits for robustness."""
-        # Randomly scale link masses by ±10 %
+        # Randomly scale link masses by ±10 %
         scale = 1.0 + 0.2 * (np.random.rand(len(self.config.masses)) - 0.5)
         self.config.masses = (np.asarray(self.config.masses) * scale).tolist()
-        # Randomly scale joint damping by ±10 %
+        # Randomly scale joint damping by ±10 %
         self.config.damping *= float(1.0 + 0.2 * (np.random.rand() - 0.5))
-        # Randomly scale torque limits by ±10 %
+        # Randomly scale torque limits by ±10 %
         self.torque_limits *= (1.0 + 0.2 * (np.random.rand(self.num_joints) - 0.5))
