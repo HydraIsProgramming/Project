@@ -1,0 +1,50 @@
+{
+  "name": "3D_2Link_SphericalShoulder",
+  "dof": 4,
+  "joint_names": [
+    "J1x",
+    "J1y",
+    "J1z",
+    "J2"
+  ],
+  "initial_angles_deg": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "link_lengths": [
+    0.42,
+    0.36
+  ],
+  "masses": [
+    2.6,
+    1.9
+  ],
+  "inertias": [
+    0.09,
+    0.09,
+    0.09,
+    0.05
+  ],
+  "damping": 0.09931506849315068,
+  "shoulder_position": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "joint_limits_deg_min": [
+    -120.0,
+    -90.0,
+    -90.0,
+    0.0
+  ],
+  "joint_limits_deg_max": [
+    0.0,
+    90.0,
+    120.0,
+    120.0
+  ],
+  "dt": 0.05,
+  "velocity_limits_deg_per_s": 120.0
+}

@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2-Link Arm RL - Architecture and Interface</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=IBM+Plex+Mono:wght@400;500;700&display=swap');
+
+  :root {
+    --bg: #f3f6f8;
+    --ink: #132026;
+    --muted: #51616c;
+    --card: #ffffff;
+    --line: #d7e0e6;
+    --agent: #155eef;
+    --env: #087443;
+    --obs: #0369a1;
+    --act: #b45309;
+    --rew: #be123c;
+    --accent: #0f766e;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Manrope', sans-serif;
+    background: radial-gradient(circle at 20% 10%, #e8f9f6 0%, var(--bg) 45%, #edf3f8 100%);
+    color: var(--ink);
+    min-height: 100vh;
+    line-height: 1.65;
+  }
+
+  .wrap {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 0 22px 72px;
+  }
+
+  nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--line);
+    padding: 20px 0;
+    margin-bottom: 42px;
+  }
+
+  .brand {
+    font-weight: 800;
+    font-size: 14px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .nav-links a {
+    text-decoration: none;
+    color: var(--ink);
+    border: 1px solid var(--line);
+    background: #fff;
+    border-radius: 999px;
+    padding: 7px 14px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .nav-links a.active {
+    background: #e7fffb;
+    border-color: #9adfd6;
+    color: #0b5f57;
+  }
+
+  .hero {
+    margin-bottom: 34px;
+  }
+
+  .eyebrow {
+    color: var(--accent);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 800;
+    margin-bottom: 10px;
+  }
+
+  h1 {
+    font-size: clamp(30px, 5.2vw, 56px);
+    line-height: 1.03;
+    letter-spacing: -0.02em;
+    margin-bottom: 14px;
+  }
+
+  .lead {
+    max-width: 880px;
+    color: var(--muted);
+    font-size: 16px;
+  }
+
+  .tag-row {
+    margin-top: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .tag {
+    font-size: 11px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 4px 8px;
+    background: #fff;
+    color: var(--muted);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .sec {
+    margin-top: 34px;
+  }
+
+  .sec h2 {
+    font-size: clamp(22px, 3.3vw, 34px);
+    line-height: 1.15;
+    margin-bottom: 8px;
+    letter-spacing: -0.02em;
+  }
+
+  .sec p {
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 18px 18px;
+  }
+
+  .grid-2 {
+    margin-top: 16px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
+  .grid-3 {
+    margin-top: 16px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+
+  .mono {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    color: #24343c;
+    background: #f7fafc;
+    border: 1px solid #e6edf2;
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-top: 10px;
+    overflow-x: auto;
+  }
+
+  ul {
+    margin-top: 8px;
+    margin-left: 18px;
+  }
+
+  li {
+    margin-bottom: 5px;
+    color: var(--muted);
+    font-size: 13.5px;
+  }
+
+  strong { color: var(--ink); }
+
+  .io-grid {
+    margin-top: 16px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
+  .io-card {
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    padding: 14px;
+    background: #fff;
+  }
+
+  .io-card h3 {
+    font-size: 14px;
+    margin-bottom: 8px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+
+  .agent { border-left: 4px solid var(--agent); }
+  .env { border-left: 4px solid var(--env); }
+  .obs { border-left: 4px solid var(--obs); }
+  .act { border-left: 4px solid var(--act); }
+  .rew { border-left: 4px solid var(--rew); }
+  .cost { border-left: 4px solid #7c3aed; }
+
+  .table {
+    margin-top: 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  th, td {
+    border-bottom: 1px solid #edf2f7;
+    padding: 10px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  th {
+    background: #f8fbfd;
+    color: #2f4653;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  tr:last-child td { border-bottom: none; }
+
+  .flow {
+    margin-top: 16px;
+    background: #ffffff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px;
+    overflow: visible;
+  }
+  .flow-canvas {
+    position: relative;
+    width: 100%;
+    height: 760px;
+    border: 1px solid #e2eaf0;
+    border-radius: 10px;
+    background: linear-gradient(180deg, #fcfeff 0%, #f7fbff 100%);
+    overflow: visible;
+  }
+  .flow-arrows {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
+    pointer-events: none;
+  }
+  .flow-group {
+    position: absolute;
+    border: 1.5px dashed;
+    border-radius: 14px;
+    z-index: 1;
+  }
+  .flow-group .glabel {
+    position: absolute;
+    top: -12px;
+    left: 12px;
+    background: #ffffff;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .agent-area {
+    left: 3%;
+    top: 7%;
+    width: 27%;
+    height: 72%;
+    border-color: rgba(21,94,239,0.45);
+    background: rgba(21,94,239,0.03);
+  }
+  .agent-area .glabel {
+    color: #155eef;
+    border: 1px solid rgba(21,94,239,0.28);
+  }
+  .env-area {
+    left: 29%;
+    top: 24%;
+    width: 68%;
+    height: 56%;
+    border-color: rgba(8,116,67,0.45);
+    background: rgba(8,116,67,0.03);
+  }
+  .env-area .glabel {
+    color: #087443;
+    border: 1px solid rgba(8,116,67,0.28);
+  }
+  .flow-node {
+    position: absolute;
+    background: #fff;
+    border: 1px solid #dce6ee;
+    border-left: 4px solid #7a8b96;
+    border-radius: 10px;
+    padding: 9px 10px;
+    min-height: 78px;
+    z-index: 3;
+    box-shadow: 0 2px 0 rgba(0,0,0,0.03);
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+  }
+  .flow-node:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px rgba(15,23,42,0.13);
+    z-index: 6;
+  }
+  .flow-node h4 {
+    margin: 0 0 4px 0;
+    font-size: 12px;
+    line-height: 1.2;
+    letter-spacing: 0.01em;
+  }
+  .flow-node p {
+    margin: 0;
+    font-size: 11px;
+    line-height: 1.35;
+    color: #516370;
+  }
+  .flow-node.agent-node { border-left-color: #155eef; }
+  .flow-node.obs-node { border-left-color: #0369a1; }
+  .flow-node.action-node { border-left-color: #b45309; }
+  .flow-node.env-node { border-left-color: #087443; }
+  .flow-node.cost-node { border-left-color: #7c3aed; }
+  .flow-node.reward-node { border-left-color: #be123c; }
+  .flow-node.step-node { border-left-color: #0f766e; }
+
+  .node-reset { left: 7%;  top: 9%;  width: 20%; }
+  .node-obs   { left: 7%;  top: 26%; width: 20%; }
+  .node-pol   { left: 7%;  top: 44%; width: 20%; }
+  .node-act   { left: 7%;  top: 62%; width: 20%; }
+  .node-cmd   { left: 32%; top: 62%; width: 22%; }
+  .node-dyn   { left: 32%; top: 44%; width: 22%; }
+  .node-kin   { left: 32%; top: 26%; width: 22%; }
+  .node-cost  { left: 57%; top: 31%; width: 23%; }
+  .node-rew   { left: 57%; top: 50%; width: 23%; }
+  .node-step  { left: 83%; top: 41%; width: 14%; }
+
+  .flow-tip {
+    display: none;
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    width: 280px;
+    background: #0f172a;
+    color: #dbe7f3;
+    border: 1px solid #1e293b;
+    border-radius: 8px;
+    padding: 9px 10px;
+    font-size: 11px;
+    line-height: 1.45;
+    box-shadow: 0 12px 28px rgba(2, 6, 23, 0.35);
+    z-index: 9;
+  }
+  .flow-tip strong { color: #ffffff; }
+  .flow-node:hover .flow-tip { display: block; }
+  .tip-left { left: auto; right: 0; }
+  .tip-up { top: auto; bottom: calc(100% + 8px); }
+  .tip-wide { width: 320px; }
+
+  .flow-legend {
+    margin-top: 10px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    font-size: 11px;
+    color: #556875;
+  }
+  .flow-legend span {
+    background: #f7fafc;
+    border: 1px solid #d9e4ec;
+    border-radius: 999px;
+    padding: 4px 8px;
+  }
+  .flow-note {
+    margin-top: 10px;
+    font-size: 12px;
+    color: #4d5d67;
+  }
+
+  .footnote {
+    margin-top: 12px;
+    font-size: 12px;
+    color: #60717d;
+  }
+
+  @media (max-width: 880px) {
+    .grid-2, .grid-3, .io-grid { grid-template-columns: 1fr; }
+    .flow-canvas { height: 860px; }
+    .flow-node h4 { font-size: 11px; }
+    .flow-node p { font-size: 10px; }
+    .flow-tip { width: 230px; }
+    .tip-wide { width: 250px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <div class="brand">2-Link Arm RL - Architecture</div>
+    <div class="nav-links">
+      <a href="rl_intro.html">RL Intro</a>
+      <a href="arm_rl_flowchart.html">Project Workflow</a>
+      <a href="arm_rl_architecture.html" class="active">Arm Architecture</a>
+    </div>
+  </nav>
+
+  <section class="hero">
+    <div class="eyebrow">Agent-Environment Design Reference</div>
+    <h1>Architecture, Constraints, Math, Spaces, and Reward</h1>
+    <p class="lead">
+      This page defines the complete RL interface for the 2-link arm task: arm model architecture, physical/algorithmic constraints, mathematical equations, observation and action spaces, reward function, and a flowchart of the agent-environment interaction.
+    </p>
+    <div class="tag-row">
+      <div class="tag">Arm model</div>
+      <div class="tag">Constraints</div>
+      <div class="tag">Forward kinematics</div>
+      <div class="tag">Observation space</div>
+      <div class="tag">Action space</div>
+      <div class="tag">Reward shaping</div>
+      <div class="tag">I/O flow</div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2>1) Arm Model Architecture</h2>
+    <p>Planar serial manipulator with two revolute joints and fixed rigid links.</p>
+    <div class="grid-3">
+      <div class="card">
+        <strong>Base and Joint 1 (Shoulder)</strong>
+        <ul>
+          <li>Base at origin: (0, 0)</li>
+          <li>Joint angle: theta1</li>
+          <li>Controls link-1 orientation</li>
+        </ul>
+      </div>
+      <div class="card">
+        <strong>Joint 2 (Elbow)</strong>
+        <ul>
+          <li>Joint angle: theta2 (relative)</li>
+          <li>Controls link-2 orientation</li>
+          <li>Absolute link-2 angle: theta1 + theta2</li>
+        </ul>
+      </div>
+      <div class="card">
+        <strong>End Effector and Target</strong>
+        <ul>
+          <li>End-effector position: (x_e, y_e)</li>
+          <li>Target position: (x_t, y_t)</li>
+          <li>Task: reach and hold target at horizontal pose</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2>2) Constraints</h2>
+    <div class="grid-2">
+      <div class="card">
+        <strong>Physical Constraints</strong>
+        <ul>
+          <li>Rigid links with fixed lengths: L1, L2 (no extension/compression).</li>
+          <li>Joint-angle bounds: theta1, theta2 in [-pi, pi] after wrapping.</li>
+          <li>Joint velocity bounds: dtheta1, dtheta2 in [-max_vel, +max_vel].</li>
+          <li>Reachable annulus for valid target sampling:
+            r in [abs(L1-L2)+margin, L1+L2-margin].
+          </li>
+        </ul>
+      </div>
+      <div class="card">
+        <strong>RL/Task Constraints</strong>
+        <ul>
+          <li>Action bounds: a = [a1, a2], each in [-1, 1].</li>
+          <li>Time discretization: fixed dt per step.</li>
+          <li>Episode ends on success hold or max_steps.</li>
+          <li>Horizontal hold condition uses absolute link-2 orientation near 0 rad.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2>3) Mathematical Formulation</h2>
+    <div class="grid-2">
+      <div class="card">
+        <strong>Forward Kinematics</strong>
+        <div class="mono">
+elbow_x = L1 * cos(theta1)
+elbow_y = L1 * sin(theta1)
+
+x_e = L1 * cos(theta1) + L2 * cos(theta1 + theta2)
+y_e = L1 * sin(theta1) + L2 * sin(theta1 + theta2)
+        </div>
+      </div>
+      <div class="card">
+        <strong>Distance and Gradient</strong>
+        <div class="mono">
+d_t = sqrt((x_t - x_e)^2 + (y_t - y_e)^2)
+gradient_t = (d_t - d_{t-1}) / dt
+
+horizontal_error = abs(wrap_to_pi(theta1 + theta2))
+        </div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <strong>Discrete Dynamics (velocity control)</strong>
+      <div class="mono">
+dtheta = clip(dtheta + action * max_vel, -max_vel, max_vel)
+theta = wrap_to_pi(theta + dtheta * dt)
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2>4) Observation Space</h2>
+    <p>Observation vector includes kinematics, target, end-effector state, and the distance gradient signal.</p>
+    <div class="table">
+      <table>
+        <thead>
+          <tr>
+            <th>Index</th>
+            <th>Variable</th>
+            <th>Description</th>
+            <th>Type / Bound</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>0</td><td>theta1</td><td>Shoulder joint angle</td><td>float, wrapped [-pi, pi]</td></tr>
+          <tr><td>1</td><td>theta2</td><td>Elbow joint angle</td><td>float, wrapped [-pi, pi]</td></tr>
+          <tr><td>2</td><td>dtheta1</td><td>Shoulder angular velocity</td><td>float, clipped [-max_vel, max_vel]</td></tr>
+          <tr><td>3</td><td>dtheta2</td><td>Elbow angular velocity</td><td>float, clipped [-max_vel, max_vel]</td></tr>
+          <tr><td>4</td><td>x_t</td><td>Target x-coordinate</td><td>float, within workspace</td></tr>
+          <tr><td>5</td><td>y_t</td><td>Target y-coordinate</td><td>float, within workspace</td></tr>
+          <tr><td>6</td><td>x_e</td><td>End-effector x-coordinate</td><td>float, from kinematics</td></tr>
+          <tr><td>7</td><td>y_e</td><td>End-effector y-coordinate</td><td>float, from kinematics</td></tr>
+          <tr><td>8</td><td>gradient_t</td><td>Distance slope: (d_t - d_{t-1}) / dt</td><td>float, can be normalized/clipped</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2>5) Action Space</h2>
+    <div class="card act">
+      <strong>Continuous 2D command</strong>
+      <div class="mono">
+action = [a1, a2], where each a_i in [-1, 1]
+u = action * max_vel
+
+a1 -> shoulder velocity command
+a2 -> elbow velocity command
+      </div>
+      <p style="margin-top:10px">Policy output can be deterministic or stochastic; during simulation, deterministic policy is preferred for stable visualization.</p>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2>6) Reward Function (Reach + Hold + Horizontal + Smooth Gradient)</h2>
+    <div class="card rew">
+      <div class="mono">
+r_t =
+  - w_d * d_t
+  - w_g * abs(gradient_t)
+  - w_a * ||action_t||^2
+  - w_hz * horizontal_error
+  + w_s * I(success_radius)
+  + w_hold * I(success_radius AND horizontal_error < eps_hz for N_hold steps)
+      </div>
+      <ul>
+        <li><strong>- w_d * d_t</strong>: drives end-effector toward target.</li>
+        <li><strong>- w_g * abs(gradient_t)</strong>: encourages low gradient magnitude (smooth approach, less oscillation).</li>
+        <li><strong>- w_a * ||action||^2</strong>: regularizes control effort.</li>
+        <li><strong>- w_hz * horizontal_error</strong>: enforces horizontal orientation at target.</li>
+        <li><strong>+ w_hold term</strong>: rewards stable hold at desired pose, not only first contact.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2>7) Agent-Environment Interaction Flow (Detailed Contract)</h2>
+    <div class="flow">
+      <div class="flow-canvas">
+        <svg class="flow-arrows" viewBox="0 0 1000 760" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="arr-blue" markerWidth="8" markerHeight="8" refX="6" refY="3.5" orient="auto">
+              <path d="M0,0 L0,7 L8,3.5 z" fill="#155eef"/>
+            </marker>
+            <marker id="arr-green" markerWidth="8" markerHeight="8" refX="6" refY="3.5" orient="auto">
+              <path d="M0,0 L0,7 L8,3.5 z" fill="#087443"/>
+            </marker>
+            <marker id="arr-purple" markerWidth="8" markerHeight="8" refX="6" refY="3.5" orient="auto">
+              <path d="M0,0 L0,7 L8,3.5 z" fill="#7c3aed"/>
+            </marker>
+            <marker id="arr-red" markerWidth="8" markerHeight="8" refX="6" refY="3.5" orient="auto">
+              <path d="M0,0 L0,7 L8,3.5 z" fill="#be123c"/>
+            </marker>
+          </defs>
+
+          <line x1="170" y1="148" x2="170" y2="198" stroke="#155eef" stroke-width="2.1" marker-end="url(#arr-blue)"/>
+          <line x1="170" y1="278" x2="170" y2="334" stroke="#155eef" stroke-width="2.1" marker-end="url(#arr-blue)"/>
+          <line x1="170" y1="414" x2="170" y2="471" stroke="#155eef" stroke-width="2.1" marker-end="url(#arr-blue)"/>
+          <line x1="270" y1="511" x2="320" y2="511" stroke="#b45309" stroke-width="2.1" marker-end="url(#arr-blue)"/>
+          <line x1="430" y1="471" x2="430" y2="414" stroke="#087443" stroke-width="2.1" marker-end="url(#arr-green)"/>
+          <line x1="430" y1="334" x2="430" y2="278" stroke="#087443" stroke-width="2.1" marker-end="url(#arr-green)"/>
+
+          <line x1="540" y1="238" x2="570" y2="276" stroke="#7c3aed" stroke-width="2.1" marker-end="url(#arr-purple)"/>
+          <line x1="685" y1="326" x2="685" y2="380" stroke="#7c3aed" stroke-width="2.1" marker-end="url(#arr-purple)"/>
+          <line x1="800" y1="420" x2="830" y2="352" stroke="#be123c" stroke-width="2.1" marker-end="url(#arr-red)"/>
+          <line x1="540" y1="238" x2="830" y2="332" stroke="#087443" stroke-width="2.1" stroke-dasharray="5,4" marker-end="url(#arr-green)"/>
+
+          <path d="M900 312 L900 90 L170 90 L170 198" fill="none" stroke="#087443" stroke-width="2.1" stroke-dasharray="6,4" marker-end="url(#arr-green)"/>
+        </svg>
+
+        <div class="flow-group agent-area">
+          <div class="glabel">Agent Subsystem</div>
+        </div>
+        <div class="flow-group env-area">
+          <div class="glabel">Environment Subsystem</div>
+        </div>
+
+        <div class="flow-node node-reset agent-node">
+          <h4>0) Reset / State</h4>
+          <p>Episode init and memory reset.</p>
+          <div class="flow-tip">
+            <strong>Details:</strong> Initialize <code>theta</code>, <code>dtheta</code>, sample reachable target, and reset memory variables:
+            <code>d_(t-1)</code>, hold counter, step counter.
+          </div>
+        </div>
+
+        <div class="flow-node node-obs obs-node">
+          <h4>1) Observation Space O_t</h4>
+          <p>9D input vector to policy.</p>
+          <div class="flow-tip tip-wide">
+            <strong>Details:</strong> <code>[theta1, theta2, dtheta1, dtheta2, x_t, y_t, x_e, y_e, gradient_t]</code>.<br>
+            <code>gradient_t = (d_t - d_(t-1))/dt</code>.<br>
+            Angles are wrapped and velocities clipped.
+          </div>
+        </div>
+
+        <div class="flow-node node-pol agent-node">
+          <h4>2) Policy / Agent</h4>
+          <p>Maps observation to action.</p>
+          <div class="flow-tip">
+            <strong>Details:</strong> The actor computes <code>a_t ~ pi(a|obs_t)</code> (or deterministic in simulation),
+            optimized to maximize expected discounted return.
+          </div>
+        </div>
+
+        <div class="flow-node node-act action-node">
+          <h4>3) Action Space A_t</h4>
+          <p>2D bounded command.</p>
+          <div class="flow-tip tip-up">
+            <strong>Details:</strong> <code>action_t = [a1, a2]</code>, each in <code>[-1, 1]</code>.
+            These are shoulder/elbow velocity control signals before scaling.
+          </div>
+        </div>
+
+        <div class="flow-node node-cmd env-node">
+          <h4>4) Command + Safety</h4>
+          <p>Scale and enforce limits.</p>
+          <div class="flow-tip tip-up">
+            <strong>Details:</strong> Scale by <code>max_vel</code>, clip joint velocities, and wrap angles to <code>[-pi, pi]</code>.
+            Rigid-link constraint preserved.
+          </div>
+        </div>
+
+        <div class="flow-node node-dyn env-node">
+          <h4>5) Dynamics Update</h4>
+          <p>Discrete-time state transition.</p>
+          <div class="flow-tip">
+            <strong>Details:</strong> Euler update:
+            <code>dtheta = clip(dtheta + u_t)</code>,
+            <code>theta = wrap(theta + dtheta*dt)</code>.
+          </div>
+        </div>
+
+        <div class="flow-node node-kin env-node">
+          <h4>6) Kinematics + Errors</h4>
+          <p>Compute end-effector and errors.</p>
+          <div class="flow-tip tip-wide">
+            <strong>Details:</strong> Forward kinematics gives <code>(x_e, y_e)</code>, then compute
+            <code>d_t</code>, <code>gradient_t</code>, and <code>horizontal_error = |wrap(theta1+theta2)|</code>.
+          </div>
+        </div>
+
+        <div class="flow-node node-cost cost-node">
+          <h4>7) Cost Function C_t</h4>
+          <p>Explicit objective to minimize.</p>
+          <div class="flow-tip tip-left tip-wide">
+            <strong>Details:</strong>
+            <code>C_t = w_d*d_t + w_g*|gradient_t| + w_a*||a_t||^2 + w_hz*horizontal_error</code>.
+            Optional terms may penalize overshoot or unsafe motion.
+          </div>
+        </div>
+
+        <div class="flow-node node-rew reward-node">
+          <h4>8) Reward Function R_t</h4>
+          <p>RL optimization signal.</p>
+          <div class="flow-tip tip-left tip-wide">
+            <strong>Details:</strong>
+            <code>R_t = -C_t + success_bonus + hold_bonus</code>.
+            Reward encourages reach, horizontal posture, low gradient, and stable hold.
+          </div>
+        </div>
+
+        <div class="flow-node node-step step-node">
+          <h4>9) Step Output</h4>
+          <p>obs, reward, done flags.</p>
+          <div class="flow-tip tip-left">
+            <strong>Details:</strong> Emit Gym tuple:
+            <code>(obs_(t+1), reward_t, terminated, truncated, info)</code>.
+            If not done, loop back with <code>obs_(t+1)</code>.
+          </div>
+        </div>
+      </div>
+      <div class="flow-legend">
+        <span>Hover any node to see full details</span>
+        <span>Blue dashed region = combined Agent boxes</span>
+        <span>Green dashed region = combined Environment boxes</span>
+      </div>
+      <div class="flow-note">
+        The diagram is compact by default; detailed equations and constraints appear in hover boxes to reduce crowding.
+      </div>
+    </div>
+    <div class="io-grid">
+      <div class="io-card agent">
+        <h3>Agent I/O</h3>
+        <ul>
+          <li><strong>Input:</strong> observation_t (9D vector including gradient_t)</li>
+          <li><strong>Output:</strong> action_t in R^2</li>
+          <li><strong>Internal:</strong> policy network parameters and optimizer state</li>
+        </ul>
+      </div>
+      <div class="io-card env">
+        <h3>Environment I/O</h3>
+        <ul>
+          <li><strong>Input:</strong> action_t</li>
+          <li><strong>Output:</strong> observation_{t+1}, reward_t, terminated, truncated, info</li>
+          <li><strong>Internal:</strong> arm state, target state, previous distance for gradient</li>
+        </ul>
+      </div>
+      <div class="io-card obs">
+        <h3>Observation Component Detail</h3>
+        <ul>
+          <li>Joint state: theta1, theta2, dtheta1, dtheta2</li>
+          <li>Task state: x_t, y_t</li>
+          <li>Kinematic output: x_e, y_e</li>
+          <li>Progress signal: gradient_t</li>
+        </ul>
+      </div>
+      <div class="io-card rew">
+        <h3>Reward Component Detail</h3>
+        <ul>
+          <li>Distance minimization and hold completion</li>
+          <li>Horizontal posture regularization</li>
+          <li>Control effort regularization</li>
+          <li>Gradient smoothness regularization</li>
+        </ul>
+      </div>
+      <div class="io-card cost">
+        <h3>Cost Function Detail</h3>
+        <ul>
+          <li>Cost is explicit and reward is derived as negative cost plus bonuses.</li>
+          <li>Separating cost improves interpretability and tuning of each penalty term.</li>
+          <li>Cost terms: distance, gradient magnitude, control effort, horizontal error, optional overshoot.</li>
+          <li>Lower cost trajectory naturally yields steeper, stable learning improvement.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="footnote">
+      Recommended next integration step: keep this page as a formal reference for your environment contract while tuning policy and reward weights.
+    </div>
+  </section>
+</div>
+</body>
+</html>

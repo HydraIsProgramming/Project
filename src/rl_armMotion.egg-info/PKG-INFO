@@ -1,0 +1,185 @@
+Metadata-Version: 2.4
+Name: rl_armMotion
+Version: 0.1.0
+Summary: Reinforcement Learning for robotic arm motion control
+Author-email: Your Name <your.email@example.com>
+License: MIT
+Project-URL: Homepage, https://github.com/yourusername/Python_projrct
+Project-URL: Documentation, https://github.com/yourusername/Python_projrct#readme
+Project-URL: Repository, https://github.com/yourusername/Python_projrct
+Project-URL: Issues, https://github.com/yourusername/Python_projrct/issues
+Keywords: reinforcement-learning,robotics,arm-control,ML
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: numpy>=1.24.0
+Requires-Dist: pandas>=2.0.0
+Requires-Dist: scikit-learn>=1.3.0
+Requires-Dist: gymnasium>=1.0.0
+Requires-Dist: gymnasium-robotics>=0.7.0
+Requires-Dist: jupyter>=1.0.0
+Requires-Dist: notebook>=7.0.0
+Requires-Dist: matplotlib>=3.8.0
+Requires-Dist: seaborn>=0.13.0
+Requires-Dist: plotly>=5.17.0
+Requires-Dist: pillow>=10.0.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.4.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.1.0; extra == "dev"
+Requires-Dist: ipython>=8.15.0; extra == "dev"
+Provides-Extra: parallel
+Requires-Dist: multiprocessing-logging>=0.3.3; extra == "parallel"
+Requires-Dist: nvidia-ml-py3>=7.2.0; extra == "parallel"
+Provides-Extra: visualization
+Requires-Dist: plotly>=5.17.0; extra == "visualization"
+Requires-Dist: kaleido>=0.2.1; extra == "visualization"
+Requires-Dist: opencv-python>=4.8.0; extra == "visualization"
+Provides-Extra: gui
+Requires-Dist: pygame>=2.1.0; extra == "gui"
+Provides-Extra: pytorch
+Requires-Dist: torch>=2.0.0; extra == "pytorch"
+Requires-Dist: torchvision>=0.15.0; extra == "pytorch"
+Provides-Extra: tensorflow
+Requires-Dist: tensorflow>=2.13.0; extra == "tensorflow"
+
+# RL Arm Motion
+
+Reinforcement-learning project for controlling a 2-DOF robotic arm in a planar workspace with a GUI-first workflow.
+
+## 1. Project Overview
+
+### Goal
+Train an RL policy that makes the arm:
+1. Reach the target height.
+2. Align the end-effector horizontally.
+3. Hold that pose stably for consecutive steps.
+
+### Environment Summary
+- Environment class: `rl_armMotion.two_d.environments.task_env.ArmTaskEnv`
+- Action space: 2D continuous `[-1, 1]` joint velocity commands
+- Observation space: 11D state vector (angles as sin/cos, velocities, task errors, gradient, hold progress)
+- Reward shaping includes:
+  - distance and orientation terms
+  - velocity and smoothness penalties
+  - hold-progress and terminal success bonus
+
+### Available RL Algorithms in GUI
+- PPO
+- SAC
+- A2C
+
+## 2. Main Interfaces
+
+### Namespace Note
+- Primary 2D code now lives under `rl_armMotion.two_d.*`.
+- Legacy import paths (`rl_armMotion.gui.*`, `rl_armMotion.environments.*`, etc.) are kept as compatibility wrappers.
+
+### Training Dashboard GUI
+- File: `src/rl_armMotion/two_d/gui/training_gui.py`
+- Features:
+  - real-time reward/loss/entropy plots
+  - live arm pose visualization
+  - metrics panel (success rate, distance, hold progress, gradient)
+  - model and training artifact saving
+
+### Interactive Arm GUI
+- File: `src/rl_armMotion/two_d/gui/app.py`
+- Features:
+  - interactive arm parameter tuning
+  - manual joint controls
+  - motion recording/playback
+  - trained-model simulation mode
+  - shoulder/elbow torque vs time plot
+
+## 3. Installation
+
+```bash
+# from project root
+python3 -m venv venv
+source venv/bin/activate
+
+pip install --upgrade pip
+pip install -r requirements.txt
+pip install -e .
+```
+
+## 4. How To Run
+
+### 4.1 Launch Training GUI
+
+```bash
+python -m rl_armMotion.two_d.gui.training_gui --timesteps 100000 --algorithm PPO --save-dir ./project_assets/outputs/session_1
+```
+
+### 4.2 Launch Interactive Arm GUI
+
+```bash
+python -m rl_armMotion.two_d.gui.app
+```
+
+## 5. Training + Simulation Workflow
+
+1. Start the training GUI.
+2. Select algorithm (`PPO`/`SAC`/`A2C`) and timesteps.
+3. Click `Start Training`.
+4. After training, click `Save Model & Results` and choose a folder under `project_assets/outputs/...`.
+5. Open the interactive arm GUI.
+6. Click `Load Model` and choose the saved model (`*_model.zip`).
+7. Click `Run Simulation` to run policy-driven motion.
+8. Observe:
+   - arm motion panel
+   - live metrics panel
+   - torque plots (shoulder/elbow vs time)
+
+## 6. Repository Structure
+
+```text
+Python_projrct/
+├── src/rl_armMotion/
+│   ├── two_d/                        # 2D implementation (migrated from legacy root modules)
+│   ├── three_d/                      # 3D scaffold package for upcoming implementation
+│   └── ...                           # compatibility wrappers + shared package metadata
+├── docs/                             # Guides
+├── data/                             # Raw/processed/models placeholders
+├── project_assets/                   # Grouped artifacts and auxiliary material
+│   ├── tests/                        # Automated tests
+│   ├── outputs/                      # Training outputs and saved runs
+│   ├── test_images/                  # Visualization test images
+│   ├── test_runs/                    # Test dashboards / standalone run scripts
+│   └── examples/                     # Example scripts
+├── rl_intro.html                     # RL intro page
+├── arm_rl_flowchart.html             # Workflow page
+├── arm_rl_architecture.html          # Architecture page
+├── requirements.txt
+├── pyproject.toml
+└── pytest.ini
+```
+
+## 7. Running Tests
+
+```bash
+# all tests
+pytest
+
+# a specific test file
+pytest project_assets/tests/test_task_env.py -v
+
+# with coverage
+pytest --cov=src/rl_armMotion
+```
+
+## 8. Notes
+
+- Preferred model file for simulation selection: `.zip` model generated by save action.
+- Training artifacts usually include model, metadata, CSV history, JSON stats, and plot PNGs.
+- Documentation pages are linked:
+  - `rl_intro.html`
+  - `arm_rl_flowchart.html`
+  - `arm_rl_architecture.html`

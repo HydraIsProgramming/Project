@@ -1,0 +1,103 @@
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rl_armMotion"
+version = "0.1.0"
+description = "Reinforcement Learning for robotic arm motion control"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Your Name", email = "your.email@example.com"}
+]
+keywords = ["reinforcement-learning", "robotics", "arm-control", "ML"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    "numpy>=1.24.0",
+    "pandas>=2.0.0",
+    "scikit-learn>=1.3.0",
+    "gymnasium>=1.0.0",
+    "gymnasium-robotics>=0.7.0",
+    "jupyter>=1.0.0",
+    "notebook>=7.0.0",
+    "matplotlib>=3.8.0",
+    "seaborn>=0.13.0",
+    "plotly>=5.17.0",
+    "pillow>=10.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "ipython>=8.15.0",
+]
+
+parallel = [
+    "multiprocessing-logging>=0.3.3",
+    "nvidia-ml-py3>=7.2.0",
+]
+
+visualization = [
+    "plotly>=5.17.0",
+    "kaleido>=0.2.1",
+    "opencv-python>=4.8.0",
+]
+
+gui = [
+    "pygame>=2.1.0",
+]
+
+pytorch = [
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+]
+
+tensorflow = [
+    "tensorflow>=2.13.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/Python_projrct"
+Documentation = "https://github.com/yourusername/Python_projrct#readme"
+Repository = "https://github.com/yourusername/Python_projrct"
+Issues = "https://github.com/yourusername/Python_projrct/issues"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["rl_armMotion*"]
+
+[tool.pytest.ini_options]
+testpaths = ["project_assets/tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["src/rl_armMotion"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]

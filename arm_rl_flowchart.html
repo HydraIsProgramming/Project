@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2-Link Arm RL — Project Workflow</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg: #0a0c10;
+    --panel: #111318;
+    --border: #1e2430;
+    --accent1: #00e5ff;
+    --accent2: #7c3aed;
+    --accent3: #f59e0b;
+    --accent4: #10b981;
+    --accent5: #f43f5e;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --line: #2a3040;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .page {
+    position: relative; z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 60px 24px 80px;
+  }
+
+  .top-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 28px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.02);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .top-nav-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #cbd5e1;
+    white-space: nowrap;
+  }
+  .top-nav-links {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .top-nav-links a {
+    text-decoration: none;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #cbd5e1;
+    border: 1px solid #334155;
+    border-radius: 999px;
+    padding: 5px 12px;
+    background: rgba(0,0,0,0.25);
+  }
+  .top-nav-links a.active {
+    color: #00e5ff;
+    border-color: rgba(0,229,255,0.35);
+    background: rgba(0,229,255,0.08);
+  }
+
+  /* Header */
+  header { text-align: center; margin-bottom: 56px; }
+  .tag {
+    display: inline-block;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--accent1); border: 1px solid rgba(0,229,255,0.3);
+    padding: 4px 14px; border-radius: 2px; margin-bottom: 18px;
+  }
+  h1 {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(22px, 4vw, 36px); font-weight: 700;
+    color: #fff; line-height: 1.2; margin-bottom: 12px;
+  }
+  h1 span { color: var(--accent1); }
+  .subtitle { color: var(--muted); font-size: 15px; font-weight: 300; }
+
+  /* Phase pills */
+  .phase-row {
+    display: flex; gap: 10px; justify-content: center;
+    margin-bottom: 40px; flex-wrap: wrap;
+  }
+  .phase-pill {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px; padding: 5px 16px;
+    border-radius: 20px; letter-spacing: 0.05em; font-weight: 700; cursor: default;
+  }
+
+  /* Global hint */
+  .global-hint {
+    text-align: center; margin-bottom: 36px;
+    font-size: 12px; color: var(--muted);
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .global-hint em { color: var(--accent1); font-style: normal; font-size: 14px; }
+
+  /* Flow */
+  .flow { display: flex; flex-direction: column; gap: 0; }
+  .section { position: relative; margin-bottom: 8px; }
+
+  /* Arrow connector */
+  .arrow-down {
+    display: flex; justify-content: center; align-items: center;
+    height: 36px; position: relative;
+  }
+  .arrow-down::before {
+    content: ''; position: absolute; top: 0; bottom: 16px; left: 50%;
+    width: 2px;
+    background: linear-gradient(to bottom, var(--line), var(--accent1));
+    transform: translateX(-50%);
+  }
+  .arrow-down::after {
+    content: '▼'; font-size: 10px; color: var(--accent1);
+    position: absolute; bottom: 0;
+  }
+
+  /* Stage intro band */
+  .stage-intro {
+    background: rgba(255,255,255,0.022);
+    border-left: 3px solid var(--accent1);
+    border-radius: 0 6px 6px 0;
+    padding: 11px 16px; margin-bottom: 10px;
+    font-size: 13px; color: #94a3b8; line-height: 1.65;
+  }
+  .stage-intro.c2 { border-left-color: var(--accent2); }
+  .stage-intro.c3 { border-left-color: var(--accent3); }
+  .stage-intro.c4 { border-left-color: var(--accent4); }
+  .stage-intro.c5 { border-left-color: var(--accent5); }
+  .stage-intro.cp { border-left-color: #818cf8; }
+  .stage-intro strong { color: #e2e8f0; font-weight: 500; }
+
+  /* Card */
+  .card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 8px; padding: 20px 24px; position: relative;
+    transition: border-color 0.25s;
+  }
+  .card:hover { border-color: rgba(0,229,255,0.35); }
+  .card::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+    width: 3px; border-radius: 8px 0 0 8px;
+  }
+  .card-prereq::before { background: #818cf8; }
+  .card-env::before    { background: var(--accent1); }
+  .card-train::before  { background: var(--accent2); }
+  .card-eval::before   { background: var(--accent4); }
+  .card-debug::before  { background: var(--accent5); }
+  .card-infra::before  { background: var(--accent3); }
+
+  /* Card header */
+  .card-header {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 14px;
+  }
+  .icon { font-size: 18px; line-height: 1; min-width: 24px; text-align: center; }
+  .card-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 13px; font-weight: 700; letter-spacing: 0.05em;
+    text-transform: uppercase; color: #fff;
+  }
+  .card-num {
+    margin-left: auto; font-family: 'Space Mono', monospace;
+    font-size: 11px; color: var(--muted);
+  }
+
+  /* View toggle */
+  .view-toggle { display: flex; gap: 4px; margin-left: 10px; }
+  .vtbtn {
+    font-family: 'Space Mono', monospace; font-size: 10px;
+    padding: 3px 9px; border-radius: 3px;
+    border: 1px solid var(--border); background: transparent;
+    color: var(--muted); cursor: pointer; transition: all 0.15s;
+    letter-spacing: 0.04em;
+  }
+  .vtbtn.active { background: rgba(0,229,255,0.1); color: var(--accent1); border-color: rgba(0,229,255,0.35); }
+  .vtbtn:hover:not(.active) { color: #cbd5e1; border-color: #374151; }
+
+  /* Grid view */
+  .steps-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 8px;
+  }
+  .steps-grid.single-col { grid-template-columns: 1fr; }
+
+  /* List view */
+  .steps-list { display: flex; flex-direction: column; gap: 4px; }
+
+  /* Step item */
+  .step {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 6px; padding: 10px 14px;
+    font-size: 13px; color: #cbd5e1; line-height: 1.5;
+    display: flex; align-items: flex-start; gap: 8px;
+    position: relative; cursor: default;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .step:hover {
+    border-color: rgba(0,229,255,0.28);
+    background: rgba(255,255,255,0.052);
+  }
+  .steps-list .step { border-radius: 5px; padding: 9px 14px; }
+
+  /* Bullet */
+  .sb { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--accent1); margin-top: 3px; min-width: 14px; flex-shrink: 0; }
+  .sb.c2 { color: #a78bfa; }
+  .sb.c3 { color: var(--accent3); }
+  .sb.c4 { color: var(--accent4); }
+  .sb.c5 { color: var(--accent5); }
+  .sb.cp { color: #818cf8; }
+
+  /* Step body */
+  .step-body { flex: 1; min-width: 0; }
+  .step-label { display: block; }
+
+  /* Expand box — appears on hover */
+  .expand-box {
+    display: none;
+    margin-top: 9px; padding: 10px 13px;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid rgba(0,229,255,0.18);
+    border-radius: 5px;
+    font-size: 11.5px; color: #94a3b8; line-height: 1.7;
+  }
+  .expand-box.c2 { border-color: rgba(124,58,237,0.28); }
+  .expand-box.c3 { border-color: rgba(245,158,11,0.25); }
+  .expand-box.c4 { border-color: rgba(16,185,129,0.25); }
+  .expand-box.c5 { border-color: rgba(244,63,94,0.25); }
+  .expand-box.cp { border-color: rgba(129,140,248,0.28); }
+
+  .step:hover .expand-box { display: block; animation: expandIn 0.18s ease; }
+
+  @keyframes expandIn {
+    from { opacity:0; transform: translateY(-5px); }
+    to   { opacity:1; transform: translateY(0); }
+  }
+
+  .expand-box code {
+    font-family: 'Space Mono', monospace; font-size: 10.5px;
+    background: rgba(255,255,255,0.07); padding: 1px 5px; border-radius: 3px;
+    color: #a5b4fc;
+  }
+
+  /* Hint chevron */
+  .hint-chev {
+    margin-left: auto; flex-shrink: 0;
+    font-size: 10px; color: var(--muted); opacity: 0.35;
+    margin-top: 2px; transition: opacity 0.15s, color 0.15s;
+  }
+  .step:hover .hint-chev { opacity: 1; color: var(--accent1); }
+
+  /* Code badges */
+  .cb {
+    font-family: 'Space Mono', monospace; font-size: 10px;
+    background: rgba(0,229,255,0.08); color: var(--accent1);
+    border: 1px solid rgba(0,229,255,0.22);
+    border-radius: 3px; padding: 1px 6px; white-space: nowrap;
+  }
+  .cb.p { background: rgba(124,58,237,0.1); color: #a78bfa; border-color: rgba(124,58,237,0.28); }
+  .cb.a { background: rgba(245,158,11,0.09); color: #fbbf24; border-color: rgba(245,158,11,0.28); }
+  .cb.g { background: rgba(16,185,129,0.09); color: #34d399; border-color: rgba(16,185,129,0.28); }
+  .cb.r { background: rgba(244,63,94,0.09); color: #fb7185; border-color: rgba(244,63,94,0.28); }
+  .cb.i { background: rgba(129,140,248,0.09); color: #818cf8; border-color: rgba(129,140,248,0.28); }
+
+  /* Branch */
+  .branch { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 8px; }
+  @media (max-width: 640px) { .branch { grid-template-columns: 1fr; } }
+
+  /* File tree */
+  .filetree {
+    font-family: 'Space Mono', monospace; font-size: 11px;
+    color: #64748b; line-height: 1.9;
+    background: rgba(0,0,0,0.3); border-radius: 6px;
+    padding: 14px 18px; border: 1px solid var(--border);
+  }
+  .filetree .hl  { color: var(--accent1); }
+  .filetree .hl2 { color: #a78bfa; }
+  .filetree .hl3 { color: #fbbf24; }
+
+  /* Done card */
+  .done-card {
+    background: linear-gradient(135deg, rgba(16,185,129,0.08), rgba(0,229,255,0.05));
+    border: 1px solid rgba(16,185,129,0.3);
+    border-radius: 8px; padding: 28px; text-align: center;
+  }
+  .done-title {
+    font-family: 'Space Mono', monospace; font-size: 15px; font-weight: 700;
+    color: #34d399; margin-bottom: 8px; letter-spacing: 0.08em;
+  }
+  .done-checks {
+    display: flex; gap: 16px; justify-content: center;
+    flex-wrap: wrap; margin-top: 16px;
+  }
+  .done-check { font-size: 12px; color: #94a3b8; display: flex; align-items: center; gap: 6px; }
+  .done-check span { color: #34d399; font-size: 14px; }
+
+  /* Legend */
+  .legend {
+    display: flex; gap: 20px; justify-content: center;
+    flex-wrap: wrap; margin-top: 48px;
+    padding-top: 24px; border-top: 1px solid var(--border);
+  }
+  .leg-item { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); }
+  .leg-dot { width: 10px; height: 10px; border-radius: 2px; }
+
+  /* Animate in */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .section { animation: fadeUp 0.45s ease both; }
+  .section:nth-child(1)  { animation-delay: 0.04s; }
+  .section:nth-child(2)  { animation-delay: 0.09s; }
+  .section:nth-child(3)  { animation-delay: 0.13s; }
+  .section:nth-child(4)  { animation-delay: 0.17s; }
+  .section:nth-child(5)  { animation-delay: 0.21s; }
+  .section:nth-child(6)  { animation-delay: 0.25s; }
+  .section:nth-child(7)  { animation-delay: 0.29s; }
+  .section:nth-child(8)  { animation-delay: 0.33s; }
+  .section:nth-child(9)  { animation-delay: 0.37s; }
+  .section:nth-child(10) { animation-delay: 0.41s; }
+  .section:nth-child(11) { animation-delay: 0.45s; }
+  .section:nth-child(12) { animation-delay: 0.49s; }
+  .section:nth-child(13) { animation-delay: 0.53s; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="top-nav">
+    <div class="top-nav-title">RL Documentation Navigation</div>
+    <div class="top-nav-links">
+      <a href="rl_intro.html">RL Intro</a>
+      <a href="arm_rl_flowchart.html" class="active">Project Workflow</a>
+      <a href="arm_rl_architecture.html">Arm Architecture</a>
+    </div>
+  </div>
+
+  <header>
+    <div class="tag">Reinforcement Learning Pipeline</div>
+    <h1>2-Link Arm <span>Reaching Task</span><br>Project Workflow</h1>
+    <p class="subtitle">Full implementation roadmap — prerequisites → environment → training → evaluation → done</p>
+  </header>
+
+  <div class="phase-row">
+    <div class="phase-pill" style="background:rgba(129,140,248,0.12);color:#818cf8;border:1px solid rgba(129,140,248,0.3)">⓪ Prerequisites</div>
+    <div class="phase-pill" style="background:rgba(0,229,255,0.1);color:#00e5ff;border:1px solid rgba(0,229,255,0.3)">① Project Setup</div>
+    <div class="phase-pill" style="background:rgba(124,58,237,0.1);color:#a78bfa;border:1px solid rgba(124,58,237,0.3)">② Environment</div>
+    <div class="phase-pill" style="background:rgba(245,158,11,0.1);color:#fbbf24;border:1px solid rgba(245,158,11,0.3)">③ Training</div>
+    <div class="phase-pill" style="background:rgba(16,185,129,0.1);color:#34d399;border:1px solid rgba(16,185,129,0.3)">④ Eval &amp; Render</div>
+    <div class="phase-pill" style="background:rgba(244,63,94,0.1);color:#fb7185;border:1px solid rgba(244,63,94,0.3)">⑤ Debug Loop</div>
+  </div>
+
+  <div class="global-hint">
+    <em>▾</em> Hover any item to expand its explanation &nbsp;·&nbsp;
+    Use <strong style="color:#cbd5e1">GRID / LIST</strong> to switch layout per stage
+  </div>
+
+  <div class="flow">
+
+    <!-- ═══════════════════ STAGE 0 — PREREQUISITES ═══════════════════ -->
+    <div class="section">
+      <div class="stage-intro cp">
+        <strong>Stage 0 — Prerequisites &amp; Dependencies</strong><br>
+        Before writing any project code, make sure your Python environment has every dependency installed and verified. Getting the install right prevents cryptic import errors mid-training. All packages listed here are open-source and CPU-compatible.
+      </div>
+      <div class="card card-prereq">
+        <div class="card-header">
+          <span class="icon">📦</span>
+          <span class="card-title">Dependencies &amp; Prerequisites</span>
+          <div class="view-toggle">
+            <button class="vtbtn active" onclick="setView(this,'prereq','grid')">GRID</button>
+            <button class="vtbtn" onclick="setView(this,'prereq','list')">LIST</button>
+          </div>
+          <span class="card-num">#0</span>
+        </div>
+        <div id="prereq-grid" class="steps-grid">
+
+          <div class="step">
+            <span class="sb cp">▸</span>
+            <div class="step-body">
+              <span class="step-label"><span class="cb i">Python 3.10+</span></span>
+              <div class="expand-box cp">Required for modern type-hint syntax used across the project. Verify with <code>python --version</code>. Use <code>pyenv</code> or <code>conda</code> to manage versions. Python 3.11 is the recommended sweet spot for speed and compatibility.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+          <div class="step">
+            <span class="sb cp">▸</span>
+            <div class="step-body">
+              <span class="step-label"><span class="cb i">gymnasium</span> — RL environment API</span>
+              <div class="expand-box cp">The modern OpenAI Gym successor. Provides the <code>Env</code> base class, <code>Box/Discrete</code> spaces, and <code>check_env()</code> validator. Install: <code>pip install gymnasium</code>. Target version ≥ 0.29 which uses the separated <code>terminated/truncated</code> API required by SB3.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+          <div class="step">
+            <span class="sb cp">▸</span>
+            <div class="step-body">
+              <span class="step-label"><span class="cb i">numpy</span> — numerical core</span>
+              <div class="expand-box cp">Used everywhere: trig (cos/sin), array clipping, random sampling, and observation stacking. Install: <code>pip install numpy</code>. Version ≥ 1.24 recommended. NumPy is the backbone of both the environment dynamics and evaluation metrics.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+          <div class="step">
+            <span class="sb cp">▸</span>
+            <div class="step-body">
+              <span class="step-label"><span class="cb i">torch</span> — neural network backend</span>
+              <div class="expand-box cp">PyTorch backs all SB3 policy networks. CPU-only install: <code>pip install torch --index-url https://download.pytorch.org/whl/cpu</code>. Version ≥ 2.0 is preferred. No GPU needed for this project — the environment is lightweight enough for fast CPU training.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+          <div class="step">
+            <span class="sb cp">▸</span>
+            <div class="step-body">
+              <span class="step-label"><span class="cb i">stable-baselines3</span> — RL algorithms</span>
+              <div class="expand-box cp">Provides PPO, SAC, TD3 with a unified Gym API. Install: <code>pip install stable-baselines3[extra]</code>. The <code>[extra]</code> flag pulls tensorboard integration, VecNormalize, and EvalCallback. Use version ≥ 2.0 for Gymnasium 0.26+ compatibility.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+          <div class="step">
+            <span class="sb cp">▸</span>
+            <div class="step-body">
+              <span class="step-label"><span class="cb i">matplotlib</span> — plots &amp; animation</span>
+              <div class="expand-box cp">Used for training curves and arm animation (<code>FuncAnimation</code>). Install: <code>pip install matplotlib</code>. For saving <code>.mp4</code> files, also install <code>ffmpeg</code> at the system level. Version ≥ 3.7 recommended for smoother animation APIs.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+          <div class="step">
+            <span class="sb cp">▸</span>
+            <div class="step-body">
+              <span class="step-label"><span class="cb i">pyyaml</span> — config file parsing</span>
+              <div class="expand-box cp">Reads <code>ppo.yaml</code> and <code>sac.yaml</code> hyperparameter configs at runtime so you never hardcode values. Install: <code>pip install pyyaml</code>. Use <code>yaml.safe_load()</code> — never <code>yaml.load()</code> which can execute arbitrary code.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+          <div class="step">
+            <span class="sb cp">▸</span>
+            <div class="step-body">
+              <span class="step-label"><span class="cb i">tensorboard</span> — training monitor</span>
+              <div class="expand-box cp">SB3 writes logs automatically. View live with <code>tensorboard --logdir ./logs</code>. Install: <code>pip install tensorboard</code>. Essential for spotting reward collapse, entropy drops, or diverging value loss early — before the full training run completes.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+          <div class="step">
+            <span class="sb cp">▸</span>
+            <div class="step-body">
+              <span class="step-label"><span class="cb i">ffmpeg</span> — video export (system)</span>
+              <div class="expand-box cp">System-level dependency for <code>.mp4</code> animation export. Ubuntu: <code>sudo apt install ffmpeg</code>. macOS: <code>brew install ffmpeg</code>. Windows: use winget or chocolatey. Alternatively use <code>pillow</code> writer for GIF output with no system dependency.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+          <div class="step">
+            <span class="sb cp">▸</span>
+            <div class="step-body">
+              <span class="step-label"><span class="cb i">pip install -r requirements.txt</span></span>
+              <div class="expand-box cp">Create a pinned <code>requirements.txt</code>: <code>gymnasium&gt;=0.29</code>, <code>numpy&gt;=1.24</code>, <code>torch&gt;=2.0</code>, <code>stable-baselines3[extra]&gt;=2.0</code>, <code>matplotlib&gt;=3.7</code>, <code>pyyaml&gt;=6.0</code>, <code>tensorboard&gt;=2.13</code>. One command installs everything reproducibly on any machine.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+        </div>
+        <div id="prereq-list" class="steps-list" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="arrow-down"></div>
+
+    <!-- ═══════════════════ STAGE 1 — PROJECT SETUP ═══════════════════ -->
+    <div class="section">
+      <div class="stage-intro c3">
+        <strong>Stage 1 — Project Scaffold &amp; Config</strong><br>
+        Establish the directory structure and shared utilities every other module depends on. Investing in clean config management now prevents hardcoded values from leaking into env and training code. This stage creates the skeleton; later stages fill it in.
+      </div>
+      <div class="card card-infra">
+        <div class="card-header">
+          <span class="icon">🗂</span>
+          <span class="card-title">Project Scaffold &amp; Config</span>
+          <div class="view-toggle">
+            <button class="vtbtn active" onclick="setView(this,'scaffold','grid')">GRID</button>
+            <button class="vtbtn" onclick="setView(this,'scaffold','list')">LIST</button>
+          </div>
+          <span class="card-num">#1</span>
+        </div>
+        <div id="scaffold-grid" class="steps-grid">
+
+          <div class="step">
+            <span class="sb c3">▸</span>
+            <div class="step-body">
+              <span class="step-label">Create <span class="cb a">arm_rl/</span> directory tree</span>
+              <div class="expand-box c3">Create: <code>arm_rl/envs/</code>, <code>arm_rl/utils/</code>, <code>arm_rl/configs/</code>, <code>arm_rl/models/</code>, <code>arm_rl/outputs/</code>. Add <code>__init__.py</code> to each Python package so imports work correctly. Keep outputs/ out of version control via <code>.gitignore</code>.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+          <div class="step">
+            <span class="sb c3">▸</span>
+            <div class="step-body">
+              <span class="step-label">Write <span class="cb a">ppo.yaml</span> / <span class="cb a">sac.yaml</span></span>
+              <div class="expand-box c3">Each YAML declares both env params (<code>L1, L2, dt, max_steps, success_threshold, max_vel, action_penalty</code>) and algo params (<code>learning_rate, batch_size, gamma, n_steps</code> for PPO; <code>tau, buffer_size</code> for SAC). Never hardcode these in Python files.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+          <div class="step">
+            <span class="sb c3">▸</span>
+            <div class="step-body">
+              <span class="step-label">Implement <span class="cb a">utils/seed.py</span></span>
+              <div class="expand-box c3">Expose <code>set_seed(seed: int)</code> that calls <code>np.random.seed()</code>, <code>torch.manual_seed()</code>, and passes the seed to <code>env.reset(seed=seed)</code>. This guarantees bit-for-bit reproducible rollouts — essential for comparing config changes fairly.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+          <div class="step">
+            <span class="sb c3">▸</span>
+            <div class="step-body">
+              <span class="step-label">Stub <span class="cb a">utils/logging.py</span></span>
+              <div class="expand-box c3">Wrap Python's standard <code>logging</code> module. Provide <code>get_logger(name: str)</code> that returns a logger with a consistent timestamped format. Used in train.py and eval.py to replace bare <code>print()</code> calls with structured, filterable output.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+          <div class="step">
+            <span class="sb c3">▸</span>
+            <div class="step-body">
+              <span class="step-label">Stub <span class="cb a">utils/plotting.py</span></span>
+              <div class="expand-box c3">Provide: <code>plot_training_curves(rewards, distances, path)</code> and <code>plot_trajectory(states, target, path)</code>. Centralising matplotlib logic here keeps train.py and render.py clean and makes it easy to swap plotting libraries later.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+          <div class="step">
+            <span class="sb c3">▸</span>
+            <div class="step-body">
+              <span class="step-label">Write <span class="cb a">README.md</span></span>
+              <div class="expand-box c3">Document: install steps, quickstart commands (<code>python train.py --config configs/ppo.yaml</code>), config options table, expected outputs, and how to reproduce results. A clear README makes the project reproducible for others from day one — and your future self in 3 months.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+        </div>
+        <div id="scaffold-list" class="steps-list" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="arrow-down"></div>
+
+    <!-- ═══════════════════ STAGE 2 — ENVIRONMENT ═══════════════════ -->
+    <div class="section">
+      <div class="stage-intro c2">
+        <strong>Stage 2 — ArmReachEnv (Gymnasium Environment)</strong><br>
+        The custom environment is the heart of the entire project. It defines what the agent perceives, what it can do, how the arm physically moves, and what signal it gets rewarded on. Every downstream module (training, evaluation, rendering) is a consumer of this env — so correctness here is non-negotiable.
+      </div>
+      <div class="card card-env">
+        <div class="card-header">
+          <span class="icon">🦾</span>
+          <span class="card-title">ArmReachEnv — Gymnasium Environment</span>
+          <div class="view-toggle">
+            <button class="vtbtn active" onclick="setView(this,'env','grid')">GRID</button>
+            <button class="vtbtn" onclick="setView(this,'env','list')">LIST</button>
+          </div>
+          <span class="card-num">#2</span>
+        </div>
+        <div id="env-grid" class="steps-grid">
+
+          <div class="step">
+            <span class="sb">▸</span>
+            <div class="step-body">
+              <span class="step-label"><strong style="color:#e2e8f0">State / Observation space</strong></span>
+              <div class="expand-box">8-dimensional float32 vector: <code>[θ1, θ2, dθ1, dθ2, x_t, y_t, x_e, y_e]</code>. Optionally add <code>[x_t−x_e, y_t−y_e]</code> for 10-dim. Normalize angles to [−π, π]. Declare with <code>Box(low, high, shape=(8,), dtype=np.float32)</code>. Correct bounds help with VecNormalize stats.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+          <div class="step">
+            <span class="sb">▸</span>
+            <div class="step-body">
+              <span class="step-label"><strong style="color:#e2e8f0">Action space</strong></span>
+              <div class="expand-box">Continuous 2D: <code>a = [a1, a2] ∈ [−1, 1]</code>. In velocity control mode scale by <code>max_vel</code> to get rad/s. Declare as <code>Box(low=-1, high=1, shape=(2,), dtype=np.float32)</code>. Start with velocity control — it is more stable than torque and easier to debug.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+          <div class="step">
+            <span class="sb">▸</span>
+            <div class="step-body">
+              <span class="step-label"><strong style="color:#e2e8f0">Forward kinematics</strong></span>
+              <div class="expand-box">Shoulder at origin. Elbow: <code>(L1·cosθ1, L1·sinθ1)</code>. Wrist: <code>x_e = L1·cosθ1 + L2·cos(θ1+θ2)</code>, <code>y_e = L1·sinθ1 + L2·sin(θ1+θ2)</code>. Validate at θ1=θ2=0 → <code>x_e = L1+L2, y_e = 0</code> before anything else.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+          <div class="step">
+            <span class="sb">▸</span>
+            <div class="step-body">
+              <span class="step-label"><strong style="color:#e2e8f0">Discrete-time dynamics</strong></span>
+              <div class="expand-box">Per step: <code>dθ += action * max_vel</code> → <code>dθ = clip(dθ, −max_vel, max_vel)</code> → <code>θ += dθ * dt</code> → wrap to [−π, π] via <code>np.arctan2(sin(θ), cos(θ))</code>. Simple Euler integration — no inertia in Phase 1. Default dt=0.02 s.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+          <div class="step">
+            <span class="sb">▸</span>
+            <div class="step-body">
+              <span class="step-label"><strong style="color:#e2e8f0">Reward function</strong></span>
+              <div class="expand-box">Base: <code>r = −dist</code> where <code>dist = ‖p_e − p_t‖₂</code>. Action penalty: <code>−λ·‖a‖²</code> (λ ≈ 0.01). Success bonus: <code>+R_success</code> (e.g. +10) on reaching. Keep rewards in roughly [−5, +10] range — PPO's value network is sensitive to scale. Consider <code>VecNormalize</code> if reward variance is large.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+          <div class="step">
+            <span class="sb">▸</span>
+            <div class="step-body">
+              <span class="step-label"><strong style="color:#e2e8f0">Termination logic</strong></span>
+              <div class="expand-box"><code>terminated = dist &lt; success_threshold</code>. <code>truncated = step_count &gt;= max_steps</code>. Return both flags separately per Gymnasium 0.26+ API — <code>step()</code> must return <code>(obs, reward, terminated, truncated, info)</code>. SB3 handles bootstrap value differently for each case.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+          <div class="step">
+            <span class="sb">▸</span>
+            <div class="step-body">
+              <span class="step-label"><strong style="color:#e2e8f0">Episode reset</strong></span>
+              <div class="expand-box">Sample target in reachable annulus: <code>r ∈ [|L1−L2|+0.05, L1+L2−0.05]</code>, random angle. Reset joint angles uniformly from <code>U(−0.3, 0.3)</code>. Zero velocities. Accept <code>seed</code> kwarg and call <code>super().reset(seed=seed)</code> first for proper RNG seeding.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+          <div class="step">
+            <span class="sb">▸</span>
+            <div class="step-body">
+              <span class="step-label"><strong style="color:#e2e8f0">Info dictionary</strong></span>
+              <div class="expand-box">Always return: <code>{"distance": float, "success": bool, "end_effector": [x_e, y_e], "is_success": bool}</code>. The <code>is_success</code> alias is read by SB3's <code>EvalCallback</code> to compute and log success rate during training. Don't omit it.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+        </div>
+        <div id="env-list" class="steps-list" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="arrow-down"></div>
+
+    <!-- ═══════════════════ STAGE 3 — VERIFICATION ═══════════════════ -->
+    <div class="section">
+      <div class="stage-intro c5">
+        <strong>Stage 3 — Environment Verification</strong><br>
+        Before connecting the env to any training algorithm, run lightweight sanity checks. RL bugs are notoriously hard to trace once training starts — observation shape mismatches, NaN rewards, and Gym API violations cause silent bad learning with no clear error messages. Catch everything here first.
+      </div>
+      <div class="card card-debug">
+        <div class="card-header">
+          <span class="icon">✅</span>
+          <span class="card-title">Environment Verification Checks</span>
+          <div class="view-toggle">
+            <button class="vtbtn active" onclick="setView(this,'verify','grid')">GRID</button>
+            <button class="vtbtn" onclick="setView(this,'verify','list')">LIST</button>
+          </div>
+          <span class="card-num">#3</span>
+        </div>
+        <div id="verify-grid" class="steps-grid">
+
+          <div class="step">
+            <span class="sb c5">▸</span>
+            <div class="step-body">
+              <span class="step-label">FK unit assertion</span>
+              <div class="expand-box c5">Set <code>θ1=0, θ2=0</code> and call the FK function directly. Assert <code>|x_e − (L1+L2)| &lt; 1e-6</code> and <code>|y_e| &lt; 1e-6</code>. Also test <code>θ1=π/2, θ2=0</code> → <code>x_e≈0, y_e≈L1+L2</code>. Catches sign errors and axis convention bugs before any agent touches the env.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+          <div class="step">
+            <span class="sb c5">▸</span>
+            <div class="step-body">
+              <span class="step-label">Reset shape &amp; dtype</span>
+              <div class="expand-box c5">Call <code>obs, info = env.reset()</code> and assert: <code>obs.shape == env.observation_space.shape</code>, <code>obs.dtype == np.float32</code>, <code>np.isfinite(obs).all()</code>, and all values within declared <code>low/high</code> bounds. Fail fast with a clear assertion error message.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+          <div class="step">
+            <span class="sb c5">▸</span>
+            <div class="step-body">
+              <span class="step-label">Step NaN stress test</span>
+              <div class="expand-box c5">Run 200 random steps with <code>env.action_space.sample()</code>. After each step assert: reward is finite scalar, obs is finite float32, info has required keys. Tests edge cases like angles near ±π wrap and boundary target positions that might produce NaN via div-by-zero.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+          <div class="step">
+            <span class="sb c5">▸</span>
+            <div class="step-body">
+              <span class="step-label">SB3 <span class="cb r">check_env()</span> utility</span>
+              <div class="expand-box c5">Run <code>from stable_baselines3.common.env_checker import check_env; check_env(env, warn=True)</code>. Validates reset/step signatures, space types, info dict format, and warns about common mistakes. Fix all warnings — they become silent errors once you scale to VecEnv.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+          <div class="step">
+            <span class="sb c5">▸</span>
+            <div class="step-body">
+              <span class="step-label">Reproducibility with fixed seed</span>
+              <div class="expand-box c5">Run two identical rollouts using <code>set_seed(42)</code> and assert observation sequences are bit-for-bit identical. This confirms <code>seed.py</code> and <code>env.reset(seed=…)</code> work end-to-end. Required for fair ablation comparisons between configs.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+        </div>
+        <div id="verify-list" class="steps-list" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="arrow-down"></div>
+
+    <!-- ═══════════════════ STAGE 4 — TRAINING ═══════════════════ -->
+    <div class="section">
+      <div class="stage-intro c2">
+        <strong>Stage 4 — Training Pipeline (train.py)</strong><br>
+        Wire the verified environment into an SB3 training loop. This stage is about clean infrastructure: loading configs, logging progress, saving artifacts, and making training resumable. The RL algorithm itself is mostly plug-and-play once the env is correct — the real work here is pipeline plumbing.
+      </div>
+      <div class="card card-train">
+        <div class="card-header">
+          <span class="icon">🧠</span>
+          <span class="card-title">train.py — SB3 Training Pipeline</span>
+          <div class="view-toggle">
+            <button class="vtbtn active" onclick="setView(this,'train','grid')">GRID</button>
+            <button class="vtbtn" onclick="setView(this,'train','list')">LIST</button>
+          </div>
+          <span class="card-num">#4</span>
+        </div>
+        <div id="train-grid" class="steps-grid">
+
+          <div class="step">
+            <span class="sb c2">▸</span>
+            <div class="step-body">
+              <span class="step-label">Load config via YAML + argparse</span>
+              <div class="expand-box c2">CLI: <code>python train.py --config configs/ppo.yaml --seed 42 --timesteps 500000</code>. Merge CLI overrides on top of YAML defaults. Log the final resolved config dict at run start and save it as JSON in <code>outputs/</code> alongside the model — every run is self-documenting.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+          <div class="step">
+            <span class="sb c2">▸</span>
+            <div class="step-body">
+              <span class="step-label">Wrap env with <span class="cb p">make_vec_env</span></span>
+              <div class="expand-box c2">Use <code>make_vec_env(lambda: ArmReachEnv(**env_cfg), n_envs=4)</code> for parallel rollout collection. Optionally wrap with <code>VecNormalize(venv, norm_obs=True, norm_reward=True)</code> — this single addition often dramatically speeds up PPO convergence by stabilising the policy gradient magnitude.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+          <div class="step">
+            <span class="sb c2">▸</span>
+            <div class="step-body">
+              <span class="step-label">Build <span class="cb p">PPO</span> or <span class="cb p">SAC</span> model</span>
+              <div class="expand-box c2">PPO good defaults: <code>n_steps=2048, batch_size=64, ent_coef=0.01, learning_rate=3e-4</code>. SAC good defaults: <code>learning_starts=1000, tau=0.005, buffer_size=100000</code>. Start with PPO — it's more stable for velocity-controlled tasks and easier to debug via entropy metrics.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+          <div class="step">
+            <span class="sb c2">▸</span>
+            <div class="step-body">
+              <span class="step-label">Attach <span class="cb p">EvalCallback</span></span>
+              <div class="expand-box c2">Evaluates on a separate non-vectorised eval env every <code>eval_freq</code> steps and checkpoints the best model. Config: <code>eval_freq=10000, n_eval_episodes=20, deterministic=True, best_model_save_path="outputs/"</code>. Reads <code>info["is_success"]</code> to track success rate over training time.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+          <div class="step">
+            <span class="sb c2">▸</span>
+            <div class="step-body">
+              <span class="step-label">Call <code style="color:#a78bfa;font-size:12px">model.learn()</code></span>
+              <div class="expand-box c2">Pass <code>total_timesteps</code>, <code>callback=[eval_cb]</code>, and <code>tb_log_name="ppo_arm"</code> for TensorBoard. Smoke test: run only 2000 steps to verify no crash. Full training: 200k–1M steps depending on task difficulty and success threshold.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+          <div class="step">
+            <span class="sb c2">▸</span>
+            <div class="step-body">
+              <span class="step-label">Save model + config + curves</span>
+              <div class="expand-box c2">After training: <code>model.save("outputs/final_model")</code>. If VecNormalize was used, also save: <code>vec_env.save("outputs/vec_normalize.pkl")</code>. Call <code>utils/plotting.py</code> to write reward and distance curves. Archive the resolved config JSON too — never lose a run's settings.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+          <div class="step">
+            <span class="sb c2">▸</span>
+            <div class="step-body">
+              <span class="step-label">Smoke test: 2k steps</span>
+              <div class="expand-box c2">Always run a 2000-step train as a CI gate before any long run. If it crashes, the bug is structural (env/model/config mismatch). If rewards are all zero or NaN, the reward function is broken. This saves hours of wasted CPU time on misconfigured long runs.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+        </div>
+        <div id="train-list" class="steps-list" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="arrow-down"></div>
+
+    <!-- ═══════════════════ STAGE 5 — EVAL + RENDER ═══════════════════ -->
+    <div class="section">
+      <div class="stage-intro c4">
+        <strong>Stage 5 — Evaluation &amp; Rendering</strong><br>
+        Quantify and visualise the learned policy. These are kept as separate scripts so evaluation logic is clean and deterministic. <code>eval.py</code> answers "does it work?" with hard numbers. <code>render.py</code> answers "how does it look?" with animation. Both are essential for the Phase 1 definition of done.
+      </div>
+    </div>
+
+    <div class="branch">
+      <div class="section">
+        <div class="card card-eval">
+          <div class="card-header">
+            <span class="icon">📊</span>
+            <span class="card-title">eval.py</span>
+            <div class="view-toggle">
+              <button class="vtbtn active" onclick="setView(this,'eval','grid')">GRID</button>
+              <button class="vtbtn" onclick="setView(this,'eval','list')">LIST</button>
+            </div>
+            <span class="card-num">#5a</span>
+          </div>
+          <div id="eval-grid" class="steps-grid single-col">
+
+            <div class="step">
+              <span class="sb c4">▸</span>
+              <div class="step-body">
+                <span class="step-label">Load trained model + env</span>
+                <div class="expand-box c4">Use <code>PPO.load("outputs/final_model")</code> and rebuild the env from the saved config JSON. If <code>VecNormalize</code> was used in training, load stats with <code>VecNormalize.load("outputs/vec_normalize.pkl", env)</code> — without this, observations are on the wrong scale and the policy will behave erratically.</div>
+              </div>
+              <span class="hint-chev">▾</span>
+            </div>
+
+            <div class="step">
+              <span class="sb c4">▸</span>
+              <div class="step-body">
+                <span class="step-label">Run N evaluation episodes</span>
+                <div class="expand-box c4">Roll out 100 episodes in deterministic mode: <code>action, _ = model.predict(obs, deterministic=True)</code>. Seed each episode differently for unbiased statistics. Collect per-episode: total reward, final distance, success flag, episode length. Don't reuse the training seed.</div>
+              </div>
+              <span class="hint-chev">▾</span>
+            </div>
+
+            <div class="step">
+              <span class="sb c4">▸</span>
+              <div class="step-body">
+                <span class="step-label">Report KPI metrics</span>
+                <div class="expand-box c4">Print and save: mean ± std of reward, success rate (%), mean final distance to target, mean episode length. These four numbers are the Phase 1 KPIs. Write to <code>outputs/eval_results.csv</code> for easy tracking and comparison across multiple runs.</div>
+              </div>
+              <span class="hint-chev">▾</span>
+            </div>
+
+            <div class="step">
+              <span class="sb c4">▸</span>
+              <div class="step-body">
+                <span class="step-label">Compare vs. random baseline</span>
+                <div class="expand-box c4">Run the same N episodes with <code>env.action_space.sample()</code> for random actions. Compute identical metrics. The trained policy must beat the random baseline on all four KPIs for Phase 1 to be declared complete. Include both in the output CSV for clear comparison.</div>
+              </div>
+              <span class="hint-chev">▾</span>
+            </div>
+
+            <div class="step">
+              <span class="sb c4">▸</span>
+              <div class="step-body">
+                <span class="step-label">Save CSV + summary plot</span>
+                <div class="expand-box c4">Call <code>utils/plotting.py</code> to write a reward distribution histogram and distance-over-episodes line chart. Include a side-by-side bar chart comparing policy vs baseline on each KPI. Save to <code>outputs/eval_summary.png</code>.</div>
+              </div>
+              <span class="hint-chev">▾</span>
+            </div>
+
+          </div>
+          <div id="eval-list" class="steps-list" style="display:none"></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="card card-infra">
+          <div class="card-header">
+            <span class="icon">🎬</span>
+            <span class="card-title">render.py</span>
+            <div class="view-toggle">
+              <button class="vtbtn active" onclick="setView(this,'render','grid')">GRID</button>
+              <button class="vtbtn" onclick="setView(this,'render','list')">LIST</button>
+            </div>
+            <span class="card-num">#5b</span>
+          </div>
+          <div id="render-grid" class="steps-grid single-col">
+
+            <div class="step">
+              <span class="sb c3">▸</span>
+              <div class="step-body">
+                <span class="step-label">Load model + env</span>
+                <div class="expand-box c3">Identical loading logic to eval.py — consider extracting to a shared <code>utils/load.py</code> helper. Run in deterministic policy mode for cleaner, repeatable animation. Use a non-vectorised <code>ArmReachEnv</code> directly for easier state access.</div>
+              </div>
+              <span class="hint-chev">▾</span>
+            </div>
+
+            <div class="step">
+              <span class="sb c3">▸</span>
+              <div class="step-body">
+                <span class="step-label">Record trajectory states</span>
+                <div class="expand-box c3">Step through one full episode storing each frame's <code>[θ1, θ2]</code>, end-effector <code>(x_e, y_e)</code>, and target position. This list drives the animation without re-running the env during rendering, which keeps frame generation fast and deterministic.</div>
+              </div>
+              <span class="hint-chev">▾</span>
+            </div>
+
+            <div class="step">
+              <span class="sb c3">▸</span>
+              <div class="step-body">
+                <span class="step-label">Matplotlib arm animation</span>
+                <div class="expand-box c3">Use <code>FuncAnimation</code>. Per frame: draw shoulder→elbow line (upper arm), elbow→wrist line (forearm), dots at joints. Overlay a fading wrist trajectory trail. Keep the plot square with equal axes and a reachable-workspace circle for context.</div>
+              </div>
+              <span class="hint-chev">▾</span>
+            </div>
+
+            <div class="step">
+              <span class="sb c3">▸</span>
+              <div class="step-body">
+                <span class="step-label">Show target + success flash</span>
+                <div class="expand-box c3">Draw target as a red star marker. When <code>success=True</code> in a frame, switch the marker to green and overlay a "✓ REACHED" text annotation. This immediate visual feedback makes it obvious whether the policy has learned the reaching task at a glance.</div>
+              </div>
+              <span class="hint-chev">▾</span>
+            </div>
+
+            <div class="step">
+              <span class="sb c3">▸</span>
+              <div class="step-body">
+                <span class="step-label">Save as <span class="cb a">.mp4</span> or <span class="cb a">.gif</span></span>
+                <div class="expand-box c3"><code>anim.save("outputs/arm_reach.mp4", writer="ffmpeg", fps=30)</code> or use <code>writer="pillow"</code> for GIF with no system dependency. Provide CLI flag <code>--format gif|mp4</code>. Default to GIF for portability; use mp4 for higher quality long episodes.</div>
+              </div>
+              <span class="hint-chev">▾</span>
+            </div>
+
+          </div>
+          <div id="render-list" class="steps-list" style="display:none"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow-down"></div>
+
+    <!-- ═══════════════════ STAGE 6 — DEBUG LOOP ═══════════════════ -->
+    <div class="section">
+      <div class="stage-intro c5">
+        <strong>Stage 6 — Debug Loop</strong><br>
+        If the policy fails to learn (flat reward curves, zero success rate after 200k+ steps), follow this structured checklist. RL training failures are almost always caused by one of these root causes. Work through them in order from most to least common before changing algorithm or architecture.
+      </div>
+      <div class="card card-debug">
+        <div class="card-header">
+          <span class="icon">🔍</span>
+          <span class="card-title">Debug Loop (policy fails to learn)</span>
+          <div class="view-toggle">
+            <button class="vtbtn active" onclick="setView(this,'debug','grid')">GRID</button>
+            <button class="vtbtn" onclick="setView(this,'debug','list')">LIST</button>
+          </div>
+          <span class="card-num">#6</span>
+        </div>
+        <div id="debug-grid" class="steps-grid">
+
+          <div class="step">
+            <span class="sb c5">▸</span>
+            <div class="step-body">
+              <span class="step-label"><strong style="color:#e2e8f0">Check obs/reward for NaN</strong></span>
+              <div class="expand-box c5">Temporarily add <code>assert np.isfinite(obs).all()</code> and <code>assert np.isfinite(reward)</code> inside <code>step()</code>. NaN observations silently corrupt neural network weights — the policy learns to output near-zero actions and never recovers. This is the most common silent killer in custom RL envs.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+          <div class="step">
+            <span class="sb c5">▸</span>
+            <div class="step-body">
+              <span class="step-label"><strong style="color:#e2e8f0">Reward shaping tuning</strong></span>
+              <div class="expand-box c5">Plot reward distribution over 1000 random episodes first. If mean reward is always near −5 with little variance, the signal is too weak. Increase success bonus, reduce action penalty λ, or scale distance by a constant. The agent needs clearly distinguishable good vs bad signal to learn from.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+          <div class="step">
+            <span class="sb c5">▸</span>
+            <div class="step-body">
+              <span class="step-label"><strong style="color:#e2e8f0">Gym compliance re-check</strong></span>
+              <div class="expand-box c5">Re-run <code>check_env(env, warn=True)</code> after any env modification. Common violations: wrong obs dtype after a recent change, accidental mutation of the observation array, or not resetting all state variables on <code>reset()</code>. These are invisible unless you actively check.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+          <div class="step">
+            <span class="sb c5">▸</span>
+            <div class="step-body">
+              <span class="step-label"><strong style="color:#e2e8f0">Hyperparameter sweep</strong></span>
+              <div class="expand-box c5">PPO: try <code>learning_rate=1e-4</code> (more stable), <code>ent_coef=0.05</code> (more exploration), <code>n_steps=4096</code> (better gradient estimates). SAC: try <code>learning_starts=5000</code>, larger <code>buffer_size</code>. Log all runs to TensorBoard for fair comparison. Change one parameter at a time.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+          <div class="step">
+            <span class="sb c5">▸</span>
+            <div class="step-body">
+              <span class="step-label"><strong style="color:#e2e8f0">Normalise observations</strong></span>
+              <div class="expand-box c5">Wrap with <code>VecNormalize(venv, norm_obs=True, norm_reward=True)</code>. This is often the single biggest fix for PPO — large-magnitude observations cause unstable gradient updates. Save normalization stats after training and load them in eval.py/render.py. Without this step eval will be broken.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+          <div class="step">
+            <span class="sb c5">▸</span>
+            <div class="step-body">
+              <span class="step-label"><strong style="color:#e2e8f0">Switch action control mode</strong></span>
+              <div class="expand-box c5">If velocity control produces oscillating/chaotic trajectories, add damping: <code>dθ *= 0.95</code> per step. If switching to torque control, reduce <code>max_torque</code> significantly and add velocity damping. Position control (direct angle targets) is the most stable but least physical — use as last resort.</div>
+            </div>
+            <span class="hint-chev">▾</span>
+          </div>
+
+        </div>
+        <div id="debug-list" class="steps-list" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="arrow-down"></div>
+
+    <!-- ═══════════════════ STAGE 7 — FILE STRUCTURE ═══════════════════ -->
+    <div class="section">
+      <div class="stage-intro c3">
+        <strong>Stage 7 — Final Project File Structure</strong><br>
+        The completed layout of all files and modules. Each file has one clear responsibility. Mixing concerns — training logic inside the env, plotting inside train.py — makes debugging exponentially harder. This structure ensures that any future change can be localised to a single file.
+      </div>
+      <div class="card card-infra" style="border-color:rgba(245,158,11,0.22)">
+        <div class="card-header">
+          <span class="icon">📁</span>
+          <span class="card-title">Project File Structure</span>
+          <span class="card-num">#7</span>
+        </div>
+        <div class="filetree">
+<span style="color:#475569">arm_rl/</span><br>
+├── <span class="hl">envs/arm_reach_env.py</span>      <span style="color:#334155">← ArmReachEnv class (Stage 2)</span><br>
+├── <span class="hl2">train.py</span>                    <span style="color:#334155">← SB3 training entrypoint (Stage 4)</span><br>
+├── <span class="hl2">eval.py</span>                     <span style="color:#334155">← Evaluation + metrics (Stage 5a)</span><br>
+├── <span class="hl2">render.py</span>                   <span style="color:#334155">← Matplotlib animation (Stage 5b)</span><br>
+├── <span class="hl3">configs/</span><br>
+│   ├── <span class="hl3">ppo.yaml</span>                <span style="color:#334155">← PPO hyperparams + env config</span><br>
+│   └── <span class="hl3">sac.yaml</span>                <span style="color:#334155">← SAC hyperparams + env config</span><br>
+├── <span style="color:#94a3b8">utils/</span><br>
+│   ├── <span style="color:#94a3b8">seed.py</span>                 <span style="color:#334155">← set_seed() reproducibility helper</span><br>
+│   ├── <span style="color:#94a3b8">plotting.py</span>             <span style="color:#334155">← plot_curves(), plot_trajectory()</span><br>
+│   └── <span style="color:#94a3b8">logging.py</span>              <span style="color:#334155">← get_logger() wrapper</span><br>
+├── <span style="color:#334155">models/</span>                     <span style="color:#334155">← (optional custom policy networks)</span><br>
+├── <span style="color:#334155">outputs/</span>                    <span style="color:#334155">← saved models, plots, eval CSVs, .mp4</span><br>
+├── <span style="color:#334155">requirements.txt</span>            <span style="color:#334155">← pinned dependencies (Stage 0)</span><br>
+└── <span style="color:#334155">README.md</span>                   <span style="color:#334155">← quickstart, config reference</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow-down"></div>
+
+    <!-- ═══════════════════ DONE ═══════════════════ -->
+    <div class="section">
+      <div class="done-card">
+        <div class="done-title">✦ PHASE 1 — DEFINITION OF DONE</div>
+        <p style="color:#64748b;font-size:13px">All six conditions must pass before moving to Phase 2</p>
+        <div class="done-checks">
+          <div class="done-check"><span>✓</span> train.py runs without errors</div>
+          <div class="done-check"><span>✓</span> eval.py beats random baseline</div>
+          <div class="done-check"><span>✓</span> render.py shows arm reaching targets</div>
+          <div class="done-check"><span>✓</span> Fixed seed → reproducible results</div>
+          <div class="done-check"><span>✓</span> Config-driven, no hardcoded paths</div>
+          <div class="done-check"><span>✓</span> All modules have docstrings + type hints</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end flow -->
+
+  <div class="legend">
+    <div class="leg-item"><div class="leg-dot" style="background:#818cf8"></div>Prerequisites</div>
+    <div class="leg-item"><div class="leg-dot" style="background:var(--accent1)"></div>Environment</div>
+    <div class="leg-item"><div class="leg-dot" style="background:var(--accent2)"></div>Training / SB3</div>
+    <div class="leg-item"><div class="leg-dot" style="background:var(--accent3)"></div>Infrastructure</div>
+    <div class="leg-item"><div class="leg-dot" style="background:var(--accent4)"></div>Evaluation</div>
+    <div class="leg-item"><div class="leg-dot" style="background:var(--accent5)"></div>Debug / Testing</div>
+  </div>
+
+</div>
+
+<script>
+  function setView(btn, cardId, mode) {
+    const card = btn.closest('.card');
+    card.querySelectorAll('.vtbtn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    const grid = document.getElementById(cardId + '-grid');
+    const list = document.getElementById(cardId + '-list');
+
+    if (mode === 'list') {
+      // Populate list on first use by cloning grid items
+      if (list.children.length === 0) {
+        grid.querySelectorAll('.step').forEach(item => {
+          list.appendChild(item.cloneNode(true));
+        });
+      }
+      grid.style.display = 'none';
+      list.style.display = 'flex';
+    } else {
+      grid.style.display = 'grid';
+      list.style.display = 'none';
+    }
+  }
+</script>
+</body>
+</html>

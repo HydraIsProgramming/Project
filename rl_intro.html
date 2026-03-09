@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RL for Biomechanics — Beginner's Guide</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,600;0,900;1,300;1,600&family=Instrument+Sans:wght@400;500;600&display=swap');
+
+  :root {
+    --bg: #f7f4ef;
+    --ink: #1a1714;
+    --muted: #6b6560;
+    --border: #ddd9d2;
+    --card: #ffffff;
+    --agent: #1d4ed8;
+    --agent-bg: #eff6ff;
+    --env: #15803d;
+    --env-bg: #f0fdf4;
+    --reward: #c2410c;
+    --reward-bg: #fff7ed;
+    --policy: #7c3aed;
+    --policy-bg: #f5f3ff;
+    --obs: #0e7490;
+    --obs-bg: #ecfeff;
+    --action: #b45309;
+    --action-bg: #fffbeb;
+    --modelbased: #be185d;
+    --modelbased-bg: #fdf2f8;
+    --modelfree: #065f46;
+    --modelfree-bg: #ecfdf5;
+    --ppo: #4338ca;
+    --sac: #0891b2;
+    --td3: #d97706;
+    --dqn: #dc2626;
+    --bio: #166534;
+    --bio-bg: #f0fdf4;
+    --bio-accent: #15803d;
+    --gait: #7c3aed;
+    --gait-bg: #f5f3ff;
+    --muscle: #9a3412;
+    --muscle-bg: #fff7ed;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Instrument Sans', sans-serif;
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 0; opacity: 0.5;
+  }
+
+  .wrap {
+    position: relative; z-index: 1;
+    max-width: 1140px; margin: 0 auto;
+    padding: 0 24px 100px;
+  }
+
+  /* Nav */
+  nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 0; border-bottom: 1px solid var(--border);
+    margin-bottom: 64px;
+  }
+  .nav-brand { font-family: 'Fraunces', serif; font-size: 15px; font-weight: 600; color: var(--ink); }
+  .nav-links { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .nav-pill {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 6px 14px; border-radius: 20px; background: var(--ink); color: var(--bg);
+    text-decoration: none; transition: opacity 0.15s;
+  }
+  .nav-pill:hover { opacity: 0.75; }
+
+  /* Hero */
+  .hero { margin-bottom: 80px; }
+  .hero-eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin-bottom: 16px; }
+  .hero-title { font-family: 'Fraunces', serif; font-size: clamp(36px, 6vw, 72px); font-weight: 900; line-height: 1.0; letter-spacing: -0.03em; color: var(--ink); margin-bottom: 20px; }
+  .hero-title em { font-style: italic; color: var(--agent); }
+  .hero-title .bio-em { font-style: italic; color: var(--bio-accent); }
+  .hero-lead { font-size: 17px; color: var(--muted); max-width: 700px; line-height: 1.7; margin-bottom: 32px; }
+  .hero-tags { display: flex; gap: 8px; flex-wrap: wrap; }
+  .htag { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; padding: 5px 12px; border-radius: 3px; border: 1px solid var(--border); color: var(--muted); }
+  .htag.bio { border-color: rgba(21,128,61,0.45); color: var(--bio-accent); background: #f0fdf4; }
+
+  /* Section */
+  .sec-label { font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+  .sec-label.bio { color: var(--bio-accent); }
+  .sec-title { font-family: 'Fraunces', serif; font-size: clamp(24px, 3vw, 36px); font-weight: 700; letter-spacing: -0.02em; color: var(--ink); margin-bottom: 12px; }
+  .sec-body { font-size: 15px; color: var(--muted); max-width: 700px; line-height: 1.75; margin-bottom: 40px; }
+  .divider { height: 1px; background: var(--border); margin: 64px 0; }
+
+  /* Animate */
+  @keyframes fadeUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+  .fade { animation: fadeUp 0.5s ease both; }
+  .fade:nth-child(1){animation-delay:.05s}.fade:nth-child(2){animation-delay:.10s}
+  .fade:nth-child(3){animation-delay:.15s}.fade:nth-child(4){animation-delay:.20s}
+  .fade:nth-child(5){animation-delay:.25s}.fade:nth-child(6){animation-delay:.30s}
+  .fade:nth-child(7){animation-delay:.35s}.fade:nth-child(8){animation-delay:.40s}
+
+  /* ── Loop SVG ── */
+  .loop-container {
+    background: var(--card); border: 1.5px solid var(--border);
+    border-radius: 12px; padding: 36px 20px 28px; margin-bottom: 32px;
+  }
+  .loop-svg-wrap { width: 100%; overflow: visible; }
+  .click-hint { font-size: 11px; color: var(--muted); text-align: center; margin-bottom: 20px; letter-spacing: 0.04em; }
+  .click-hint span { color: var(--ink); font-weight: 600; }
+
+  /* Badge row */
+  .badge-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 40px; }
+  .badge { border-radius: 8px; padding: 14px 18px; border: 1.5px solid var(--border); display: flex; align-items: flex-start; gap: 12px; flex: 1; min-width: 180px; cursor: pointer; transition: transform 0.15s; }
+  .badge:hover { transform: translateY(-2px); }
+  .badge.agent  { background: var(--agent-bg);  border-color: rgba(29,78,216,0.3); }
+  .badge.env    { background: var(--env-bg);    border-color: rgba(21,128,61,0.3); }
+  .badge.obs    { background: var(--obs-bg);    border-color: rgba(14,116,144,0.3); }
+  .badge.action { background: var(--action-bg); border-color: rgba(180,83,9,0.3); }
+  .badge.reward { background: var(--reward-bg); border-color: rgba(194,65,12,0.3); }
+  .badge-icon { font-size: 20px; margin-top: 2px; }
+  .badge-title { font-family: 'Fraunces', serif; font-size: 14px; font-weight: 700; margin-bottom: 3px; }
+  .badge.agent  .badge-title { color: var(--agent); }
+  .badge.env    .badge-title { color: var(--env); }
+  .badge.obs    .badge-title { color: var(--obs); }
+  .badge.action .badge-title { color: var(--action); }
+  .badge.reward .badge-title { color: var(--reward); }
+  .badge-text { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+  /* Expand panel */
+  .expand-panel { display: none; background: var(--card); border: 1.5px solid var(--border); border-radius: 10px; padding: 20px 22px; margin-top: -4px; margin-bottom: 16px; animation: slideDown 0.2s ease; }
+  .expand-panel.open { display: block; }
+  @keyframes slideDown { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
+  .expand-panel h4 { font-family: 'Fraunces', serif; font-size: 16px; font-weight: 700; margin-bottom: 10px; color: var(--ink); }
+  .expand-panel p { font-size: 13px; color: var(--muted); line-height: 1.7; margin-bottom: 10px; }
+  .expand-panel ul { padding-left: 18px; margin-bottom: 12px; }
+  .expand-panel ul li { font-size: 13px; color: var(--muted); margin-bottom: 5px; line-height: 1.6; }
+  .expand-panel ul li strong { color: var(--ink); }
+  .ep-paper { background: #f8f7f4; border-left: 3px solid var(--agent); padding: 8px 12px; border-radius: 0 4px 4px 0; font-size: 11.5px; color: var(--muted); margin-top: 8px; line-height: 1.6; }
+  .ep-paper strong { color: var(--ink); font-size: 12px; }
+  .ep-bio { background: #f0fdf4; border-left: 3px solid var(--bio-accent); padding: 8px 12px; border-radius: 0 4px 4px 0; font-size: 11.5px; color: var(--muted); margin-top: 8px; line-height: 1.6; }
+  .ep-bio strong { color: var(--bio-accent); font-size: 12px; }
+
+  /* Taxonomy */
+  .tax-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 40px; }
+  @media (max-width:700px) { .tax-grid { grid-template-columns: 1fr; } }
+  .tax-card { border-radius: 12px; border: 1.5px solid var(--border); overflow: hidden; }
+  .tax-header { padding: 16px 20px 14px; display: flex; align-items: center; gap: 12px; }
+  .tax-card.mb .tax-header { background: var(--modelbased-bg); border-bottom: 1.5px solid rgba(190,24,93,0.2); }
+  .tax-card.mf .tax-header { background: var(--modelfree-bg);  border-bottom: 1.5px solid rgba(6,95,70,0.2); }
+  .tax-icon { font-size: 22px; }
+  .tax-title { font-family: 'Fraunces', serif; font-size: 17px; font-weight: 700; }
+  .tax-card.mb .tax-title { color: var(--modelbased); }
+  .tax-card.mf .tax-title { color: var(--modelfree); }
+  .tax-subtitle { font-size: 11px; color: var(--muted); font-weight: 500; letter-spacing: 0.04em; }
+  .tax-body { padding: 16px 20px; background: var(--card); }
+  .tax-desc { font-size: 13px; color: var(--muted); line-height: 1.65; margin-bottom: 12px; }
+  .tax-pros { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+  .tax-pro { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .tax-pro::before { content: '✦'; flex-shrink: 0; margin-top: 1px; }
+  .tax-card.mb .tax-pro::before { color: var(--modelbased); }
+  .tax-card.mf .tax-pro::before { color: var(--modelfree); }
+  .tax-paper { background: #f8f7f4; border-radius: 6px; padding: 8px 10px; font-size: 11px; color: var(--muted); line-height: 1.6; border-left: 2px solid var(--border); }
+  .tax-paper strong { color: var(--ink); }
+
+  /* Algo cards */
+  .algo-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(240px,1fr)); gap: 16px; margin-bottom: 40px; }
+  .algo-card { border-radius: 10px; border: 1.5px solid var(--border); background: var(--card); overflow: hidden; transition: transform 0.18s, box-shadow 0.18s; cursor: pointer; }
+  .algo-card:hover { transform: translateY(-3px); box-shadow: 0 10px 28px rgba(0,0,0,0.09); }
+  .algo-stripe { height: 5px; }
+  .algo-card[data-algo="PPO"] .algo-stripe { background: var(--ppo); }
+  .algo-card[data-algo="SAC"] .algo-stripe { background: var(--sac); }
+  .algo-card[data-algo="TD3"] .algo-stripe { background: var(--td3); }
+  .algo-card[data-algo="DQN"] .algo-stripe { background: var(--dqn); }
+  .algo-inner { padding: 16px 18px 18px; }
+  .algo-meta { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .algo-name { font-family: 'Fraunces', serif; font-size: 18px; font-weight: 700; letter-spacing: -0.02em; }
+  .algo-card[data-algo="PPO"] .algo-name { color: var(--ppo); }
+  .algo-card[data-algo="SAC"] .algo-name { color: var(--sac); }
+  .algo-card[data-algo="TD3"] .algo-name { color: var(--td3); }
+  .algo-card[data-algo="DQN"] .algo-name { color: var(--dqn); }
+  .algo-badge { font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 8px; border-radius: 3px; }
+  .algo-card[data-algo="PPO"] .algo-badge { background: #eef2ff; color: var(--ppo); }
+  .algo-card[data-algo="SAC"] .algo-badge { background: #ecfeff; color: var(--sac); }
+  .algo-card[data-algo="TD3"] .algo-badge { background: #fffbeb; color: var(--td3); }
+  .algo-card[data-algo="DQN"] .algo-badge { background: #fef2f2; color: var(--dqn); }
+  .algo-full { font-size: 11px; color: var(--muted); margin-bottom: 10px; font-weight: 500; }
+  .algo-desc { font-size: 12.5px; color: var(--muted); line-height: 1.65; margin-bottom: 12px; }
+  .algo-pros { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+  .algo-pro { font-size: 12px; color: var(--muted); display: flex; gap: 7px; }
+  .algo-pro::before { content: '▸'; flex-shrink: 0; margin-top: 1px; }
+  .algo-card[data-algo="PPO"] .algo-pro::before { color: var(--ppo); }
+  .algo-card[data-algo="SAC"] .algo-pro::before { color: var(--sac); }
+  .algo-card[data-algo="TD3"] .algo-pro::before { color: var(--td3); }
+  .algo-card[data-algo="DQN"] .algo-pro::before { color: var(--dqn); }
+  .algo-paper { background: #f8f7f4; border-radius: 5px; padding: 7px 10px; font-size: 11px; color: var(--muted); line-height: 1.55; border-left: 2px solid var(--border); }
+  .algo-paper strong { color: var(--ink); }
+  .algo-rec { margin-top: 10px; font-size: 11px; font-weight: 600; padding: 4px 8px; border-radius: 3px; display: inline-block; }
+  .algo-card[data-algo="PPO"] .algo-rec { background: #eef2ff; color: var(--ppo); }
+  .algo-card[data-algo="SAC"] .algo-rec { background: #ecfeff; color: var(--sac); }
+  .algo-card[data-algo="TD3"] .algo-rec { background: #fffbeb; color: var(--td3); }
+
+  /* Spaces */
+  .spaces-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 40px; }
+  @media (max-width:600px) { .spaces-grid { grid-template-columns:1fr; } }
+  .space-card { border-radius: 10px; border: 1.5px solid var(--border); background: var(--card); overflow: hidden; }
+  .space-head { padding: 14px 18px; display: flex; align-items: center; gap: 10px; border-bottom: 1.5px solid var(--border); }
+  .space-card.obs-card .space-head { background: var(--obs-bg); }
+  .space-card.act-card .space-head { background: var(--action-bg); }
+  .space-head-icon { font-size: 20px; }
+  .space-head-title { font-family: 'Fraunces', serif; font-size: 15px; font-weight: 700; }
+  .space-card.obs-card .space-head-title { color: var(--obs); }
+  .space-card.act-card .space-head-title { color: var(--action); }
+  .space-body { padding: 14px 18px; }
+  .space-desc { font-size: 12.5px; color: var(--muted); line-height: 1.65; margin-bottom: 10px; }
+  .space-items { display: flex; flex-direction: column; gap: 6px; }
+  .space-item { background: #f8f7f4; border-radius: 5px; padding: 8px 12px; font-size: 12px; color: var(--muted); border-left: 3px solid var(--border); line-height: 1.5; }
+  .space-item strong { color: var(--ink); font-size: 12.5px; }
+  .space-card.obs-card .space-item { border-left-color: var(--obs); }
+  .space-card.act-card .space-item { border-left-color: var(--action); }
+
+  /* ════════════════════════════════════════
+     BIOMECHANICS CONTEXT SECTION
+  ════════════════════════════════════════ */
+  .bio-banner {
+    background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 50%, #f0f9ff 100%);
+    border: 1.5px solid rgba(21,128,61,0.3);
+    border-radius: 14px;
+    padding: 32px 36px;
+    margin-bottom: 40px;
+    position: relative;
+    overflow: hidden;
+  }
+  .bio-banner::before {
+    content: '🦴';
+    position: absolute; right: 36px; top: 28px;
+    font-size: 64px; opacity: 0.1;
+  }
+  .bio-banner-label {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--bio-accent); margin-bottom: 10px;
+  }
+  .bio-banner h3 {
+    font-family: 'Fraunces', serif; font-size: 22px; font-weight: 700;
+    color: var(--ink); margin-bottom: 10px; letter-spacing: -0.01em;
+  }
+  .bio-banner p { font-size: 14px; color: var(--muted); line-height: 1.75; max-width: 680px; }
+
+  /* Bio component grid */
+  .bio-comp-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px; margin-bottom: 40px;
+  }
+  .bio-comp {
+    background: var(--card); border: 1.5px solid var(--border);
+    border-radius: 10px; padding: 18px 20px;
+    border-top: 3px solid var(--bio-accent);
+    transition: transform 0.15s;
+  }
+  .bio-comp:hover { transform: translateY(-2px); }
+  .bio-comp-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .bio-comp-icon { font-size: 20px; }
+  .bio-comp-title { font-family: 'Fraunces', serif; font-size: 15px; font-weight: 700; color: var(--bio-accent); }
+  .bio-comp-rl { font-size: 10px; font-weight: 600; letter-spacing: 0.06em; color: var(--muted); margin-left: auto; text-transform: uppercase; }
+  .bio-comp-desc { font-size: 12.5px; color: var(--muted); line-height: 1.65; margin-bottom: 10px; }
+  .bio-comp-list { list-style: none; display: flex; flex-direction: column; gap: 5px; }
+  .bio-comp-list li { font-size: 12px; color: var(--muted); display: flex; gap: 8px; line-height: 1.5; }
+  .bio-comp-list li::before { content: '▸'; color: var(--bio-accent); flex-shrink: 0; margin-top: 2px; }
+  .bio-comp-list li strong { color: var(--ink); }
+
+  /* Bio algorithm usage */
+  .bio-algo-row {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 14px; margin-bottom: 40px;
+  }
+  @media (max-width:700px) { .bio-algo-row { grid-template-columns: 1fr; } }
+  .bio-algo-card {
+    border-radius: 10px; overflow: hidden;
+    border: 1.5px solid var(--border); background: var(--card);
+  }
+  .bio-algo-top {
+    padding: 12px 16px; display: flex; align-items: center;
+    justify-content: space-between;
+  }
+  .bio-algo-card.ppo .bio-algo-top { background: #eef2ff; }
+  .bio-algo-card.sac .bio-algo-top { background: #ecfeff; }
+  .bio-algo-card.td3 .bio-algo-top { background: #fffbeb; }
+  .bio-algo-name { font-family: 'Fraunces', serif; font-size: 20px; font-weight: 700; }
+  .bio-algo-card.ppo .bio-algo-name { color: var(--ppo); }
+  .bio-algo-card.sac .bio-algo-name { color: var(--sac); }
+  .bio-algo-card.td3 .bio-algo-name { color: var(--td3); }
+  .bio-algo-usage {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
+    text-transform: uppercase; padding: 3px 8px; border-radius: 3px;
+  }
+  .bio-algo-card.ppo .bio-algo-usage { background: #eef2ff; color: var(--ppo); }
+  .bio-algo-card.sac .bio-algo-usage { background: #ecfeff; color: var(--sac); }
+  .bio-algo-card.td3 .bio-algo-usage { background: #fffbeb; color: var(--td3); }
+  .bio-algo-body { padding: 12px 16px; }
+  .bio-algo-use { font-size: 12.5px; color: var(--muted); line-height: 1.6; margin-bottom: 8px; }
+  .bio-algo-papers { font-size: 11px; color: var(--muted); font-style: italic; border-left: 2px solid var(--border); padding-left: 8px; line-height: 1.6; }
+
+  /* ════════════════════════════════════════
+     GAIT PAPER LIBRARY
+  ════════════════════════════════════════ */
+  .paper-library {
+    background: var(--ink); border-radius: 16px;
+    overflow: hidden; margin-bottom: 0;
+  }
+  .paper-lib-header {
+    padding: 28px 36px 0;
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 20px; flex-wrap: wrap;
+  }
+  .paper-lib-title-block { }
+  .paper-lib-eyebrow {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.16em;
+    text-transform: uppercase; color: rgba(255,255,255,0.45);
+    margin-bottom: 8px;
+  }
+  .paper-lib-title {
+    font-family: 'Fraunces', serif;
+    font-size: clamp(20px, 3vw, 28px); font-weight: 800;
+    color: #fff; letter-spacing: -0.02em; margin-bottom: 6px;
+  }
+  .paper-lib-sub { font-size: 13px; color: rgba(255,255,255,0.45); line-height: 1.6; max-width: 500px; }
+  .paper-filter-row {
+    display: flex; gap: 8px; flex-wrap: wrap;
+    padding: 20px 36px 0;
+  }
+  .pfbtn {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.05em;
+    padding: 5px 14px; border-radius: 20px; cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.15); background: transparent;
+    color: rgba(255,255,255,0.5); transition: all 0.15s;
+  }
+  .pfbtn:hover, .pfbtn.active {
+    background: rgba(255,255,255,0.1);
+    color: #fff; border-color: rgba(255,255,255,0.35);
+  }
+  .paper-cards { padding: 20px 28px 28px; display: flex; flex-direction: column; gap: 12px; }
+  .paper-card {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px; padding: 18px 22px;
+    transition: background 0.15s, border-color 0.15s;
+    cursor: pointer;
+  }
+  .paper-card:hover { background: rgba(255,255,255,0.09); border-color: rgba(255,255,255,0.2); }
+  .paper-card-top { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 10px; }
+  .paper-num {
+    font-family: 'Fraunces', serif; font-size: 22px; font-weight: 900;
+    color: rgba(255,255,255,0.12); line-height: 1; flex-shrink: 0; min-width: 32px;
+    margin-top: 2px;
+  }
+  .paper-meta { flex: 1; }
+  .paper-title {
+    font-family: 'Fraunces', serif; font-size: 15px; font-weight: 700;
+    color: #fff; line-height: 1.35; margin-bottom: 4px;
+  }
+  .paper-authors { font-size: 11.5px; color: rgba(255,255,255,0.45); margin-bottom: 4px; line-height: 1.5; }
+  .paper-venue {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.05em;
+    color: rgba(255,255,255,0.35);
+  }
+  .paper-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 0; }
+  .paper-tag {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.05em;
+    padding: 3px 8px; border-radius: 3px;
+  }
+  .paper-tag.algo { background: rgba(99,102,241,0.25); color: #a5b4fc; }
+  .paper-tag.topic { background: rgba(16,185,129,0.2); color: #6ee7b7; }
+  .paper-tag.model { background: rgba(245,158,11,0.2); color: #fcd34d; }
+  .paper-body { display: none; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.08); margin-top: 12px; }
+  .paper-body.open { display: block; }
+  .paper-contribution { font-size: 13px; color: rgba(255,255,255,0.6); line-height: 1.7; margin-bottom: 10px; }
+  .paper-findings { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+  .paper-finding { display: flex; gap: 8px; font-size: 12px; color: rgba(255,255,255,0.5); line-height: 1.55; }
+  .paper-finding::before { content: '·'; color: rgba(255,255,255,0.25); flex-shrink: 0; }
+  .paper-finding strong { color: rgba(255,255,255,0.75); }
+  .paper-link { font-size: 11px; font-weight: 600; color: #93c5fd; letter-spacing: 0.04em; text-decoration: none; }
+  .paper-link:hover { text-decoration: underline; }
+  .paper-expand-hint {
+    font-size: 11px; color: rgba(255,255,255,0.3); margin-left: auto;
+    flex-shrink: 0; margin-top: 4px; transition: color 0.15s;
+  }
+  .paper-card:hover .paper-expand-hint { color: rgba(255,255,255,0.6); }
+
+  /* Policy cards */
+  .policy-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(220px,1fr)); gap: 14px; }
+  .policy-card { background: var(--card); border: 1.5px solid var(--border); border-radius: 10px; padding: 18px; }
+  .policy-icon { font-size: 20px; margin-bottom: 8px; }
+  .policy-title { font-family: 'Fraunces', serif; font-size: 15px; font-weight: 700; color: var(--policy); margin-bottom: 6px; }
+  .policy-text { font-size: 12.5px; color: var(--muted); line-height: 1.65; }
+
+  /* Bridge */
+  .bridge { background: var(--ink); border-radius: 12px; padding: 32px 36px; display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap; margin-top: 60px; }
+  .bridge-text h3 { font-family: 'Fraunces', serif; font-size: 22px; font-weight: 700; color: #fff; margin-bottom: 6px; letter-spacing: -0.01em; }
+  .bridge-text p { font-size: 14px; color: rgba(255,255,255,0.55); line-height: 1.6; max-width: 500px; }
+  .bridge-btn { background: #fff; color: var(--ink); font-size: 13px; font-weight: 600; padding: 12px 24px; border-radius: 6px; text-decoration: none; white-space: nowrap; transition: opacity 0.15s; flex-shrink: 0; }
+  .bridge-btn:hover { opacity: 0.85; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <nav>
+    <div class="nav-brand">RL for Biomechanics — Primer</div>
+    <div class="nav-links">
+      <a href="arm_rl_flowchart.html" class="nav-pill">→ Project Workflow</a>
+      <a href="arm_rl_architecture.html" class="nav-pill">→ Arm Architecture</a>
+    </div>
+  </nav>
+
+  <!-- ══════════════ HERO ══════════════ -->
+  <section class="hero fade">
+    <div class="hero-eyebrow">Introduction to Reinforcement Learning · Biomechanics Context</div>
+    <h1 class="hero-title">How machines learn<br>to <em>move</em> like <span class="bio-em">humans</span></h1>
+    <p class="hero-lead">
+      Reinforcement Learning (RL) teaches a computational agent to make good decisions through trial and error. In <strong>biomechanics</strong>, this same framework is used to simulate how muscles, joints, and limbs coordinate to produce movement — from a reaching arm to full human gait. This page explains RL from first principles, then maps every concept to its biomechanics application.
+    </p>
+    <div class="hero-tags">
+      <div class="htag">Agent</div>
+      <div class="htag">Environment</div>
+      <div class="htag">Reward</div>
+      <div class="htag">Policy</div>
+      <div class="htag">Observation Space</div>
+      <div class="htag">Action Space</div>
+      <div class="htag">Model-Based</div>
+      <div class="htag">Model-Free</div>
+      <div class="htag bio">Biomechanics</div>
+      <div class="htag bio">Gait Simulation</div>
+      <div class="htag bio">Musculoskeletal</div>
+      <div class="htag bio">Motor Control</div>
+    </div>
+  </section>
+
+  <!-- ══════════════ CORE RL LOOP ══════════════ -->
+  <section class="fade">
+    <div class="sec-label">The Core Loop</div>
+    <h2 class="sec-title">The RL feedback cycle</h2>
+    <p class="sec-body">Every RL system has three essential players interacting in a continuous loop. Click on any component below to learn more, including how it maps to biomechanics research.</p>
+    <p class="click-hint"><span>↓</span> Click any box to expand its explanation — includes biomechanics context</p>
+
+    <div class="loop-container">
+      <svg class="loop-svg-wrap" viewBox="0 0 900 280" xmlns="http://www.w3.org/2000/svg">
+        <rect x="40" y="80" width="200" height="120" rx="10" fill="#EFF6FF" stroke="#93C5FD" stroke-width="1.5"/>
+        <text x="140" y="118" font-family="Georgia,serif" font-size="22" font-weight="700" fill="#1D4ED8" text-anchor="middle">🤖</text>
+        <text x="140" y="143" font-family="Georgia,serif" font-size="15" font-weight="700" fill="#1D4ED8" text-anchor="middle">Agent</text>
+        <text x="140" y="163" font-family="sans-serif" font-size="10.5" fill="#6B7280" text-anchor="middle">Decides what action</text>
+        <text x="140" y="178" font-family="sans-serif" font-size="10.5" fill="#6B7280" text-anchor="middle">to take next</text>
+        <rect x="58" y="186" width="164" height="22" rx="4" fill="#E0E7FF" stroke="#818CF8" stroke-width="1"/>
+        <text x="140" y="201" font-family="sans-serif" font-size="10" fill="#4338CA" font-weight="600" text-anchor="middle">Policy π(a|s) lives here</text>
+        <defs>
+          <marker id="arr-blue" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#1D4ED8"/></marker>
+          <marker id="arr-green" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#15803D"/></marker>
+        </defs>
+        <line x1="242" y1="110" x2="656" y2="110" stroke="#1D4ED8" stroke-width="2" marker-end="url(#arr-blue)" stroke-dasharray="6,3"/>
+        <rect x="380" y="92" width="140" height="22" rx="4" fill="#EFF6FF"/>
+        <text x="450" y="107" font-family="sans-serif" font-size="11" fill="#1D4ED8" font-weight="600" text-anchor="middle">⚡ Action a_t</text>
+        <rect x="660" y="80" width="200" height="120" rx="10" fill="#F0FDF4" stroke="#86EFAC" stroke-width="1.5"/>
+        <text x="760" y="118" font-family="Georgia,serif" font-size="22" font-weight="700" fill="#15803D" text-anchor="middle">🌍</text>
+        <text x="760" y="143" font-family="Georgia,serif" font-size="15" font-weight="700" fill="#15803D" text-anchor="middle">Environment</text>
+        <text x="760" y="163" font-family="sans-serif" font-size="10.5" fill="#6B7280" text-anchor="middle">Responds to the action;</text>
+        <text x="760" y="178" font-family="sans-serif" font-size="10.5" fill="#6B7280" text-anchor="middle">gives back state + reward</text>
+        <rect x="678" y="186" width="164" height="22" rx="4" fill="#DCFCE7" stroke="#4ADE80" stroke-width="1"/>
+        <text x="760" y="201" font-family="sans-serif" font-size="10" fill="#15803D" font-weight="600" text-anchor="middle">Dynamics / Physics here</text>
+        <path d="M 760,210 L 760,248 L 140,248 L 140,212" stroke="#15803D" stroke-width="2" fill="none" marker-end="url(#arr-green)" stroke-dasharray="6,3"/>
+        <rect x="310" y="230" width="280" height="22" rx="4" fill="#F0FDF4"/>
+        <text x="450" y="245" font-family="sans-serif" font-size="11" fill="#15803D" font-weight="600" text-anchor="middle">👁 Observation s_{t+1}  &amp;  🏆 Reward r_t</text>
+        <text x="450" y="270" font-family="sans-serif" font-size="10" fill="#9CA3AF" text-anchor="middle">This loop runs every timestep dt until the episode ends</text>
+      </svg>
+    </div>
+
+    <!-- Clickable badges -->
+    <div class="badge-row">
+      <div class="badge agent" onclick="toggle('exp-agent')"><span class="badge-icon">🤖</span><div><div class="badge-title">Agent</div><div class="badge-text">The decision-maker. Uses a policy to choose actions.</div></div></div>
+      <div class="badge env"   onclick="toggle('exp-env')"><span class="badge-icon">🌍</span><div><div class="badge-title">Environment</div><div class="badge-text">The world the agent lives in. Responds to actions.</div></div></div>
+      <div class="badge obs"   onclick="toggle('exp-obs')"><span class="badge-icon">👁</span><div><div class="badge-title">Observation / State</div><div class="badge-text">What the agent sees about the world each step.</div></div></div>
+      <div class="badge action" onclick="toggle('exp-action')"><span class="badge-icon">⚡</span><div><div class="badge-title">Action</div><div class="badge-text">What the agent does to influence the environment.</div></div></div>
+      <div class="badge reward" onclick="toggle('exp-reward')"><span class="badge-icon">🏆</span><div><div class="badge-title">Reward</div><div class="badge-text">A scalar signal telling the agent how well it did.</div></div></div>
+    </div>
+
+    <!-- Expand panels -->
+    <div id="exp-agent" class="expand-panel">
+      <h4>🤖 The Agent</h4>
+      <p>The agent is the learner and decision-maker. At each timestep it receives an observation and outputs an action. Its goal is to learn a <strong>policy</strong> — a mapping from observations to actions — that maximises long-term accumulated reward (the <em>return</em>).</p>
+      <ul>
+        <li><strong>Policy π(a|s):</strong> The agent's brain. Maps state → action. Can be deterministic or stochastic.</li>
+        <li><strong>Value function V(s):</strong> Estimates "how good is it to be in state s?" — helps the agent plan ahead.</li>
+        <li><strong>Q-function Q(s,a):</strong> Estimates "how good is action a in state s?" — used in SAC and TD3.</li>
+        <li><strong>Neural network:</strong> In deep RL the policy and value functions are neural networks with learnable parameters.</li>
+      </ul>
+      <div class="ep-bio"><strong>🦴 In Biomechanics:</strong> The agent represents the <strong>central nervous system (CNS)</strong> or a <strong>motor controller</strong>. In musculoskeletal simulation, the agent learns muscle activation patterns to produce coordinated movement — analogous to how the brain sends motor commands to muscles via motor neurons.</div>
+      <div class="ep-paper"><strong>Latest:</strong> Gato (Reed et al., DeepMind 2022) — a single generalist agent that controls simulated and real robots using one policy network across hundreds of tasks.</div>
+    </div>
+
+    <div id="exp-env" class="expand-panel">
+      <h4>🌍 The Environment</h4>
+      <p>The environment is everything the agent interacts with. It receives the agent's action, updates its internal state according to its dynamics (physics), and returns the next observation and a reward signal.</p>
+      <ul>
+        <li><strong>State transition:</strong> s_{t+1} = f(s_t, a_t) — the environment's dynamics function.</li>
+        <li><strong>Episode:</strong> One complete run from reset to termination. The agent resets and tries again each episode.</li>
+        <li><strong>Gymnasium API:</strong> Must implement reset() → (obs, info) and step(action) → (obs, reward, terminated, truncated, info).</li>
+      </ul>
+      <div class="ep-bio"><strong>🦴 In Biomechanics:</strong> The environment is a <strong>musculoskeletal model</strong> — typically built in MuJoCo, OpenSim, or SCONE. It simulates bones, joints, muscles, tendons, and contact forces. The "physics" is multi-body dynamics: Newton's equations applied to each body segment. Real-world measurements from motion capture (kinematics) and force plates (kinetics) serve as ground truth to validate the simulation.</div>
+      <div class="ep-paper"><strong>Latest:</strong> Rudin et al., "Learning to Walk in Minutes" (2022) — 4096 parallel physics environments trained a quadruped gait policy in 20 minutes. Similar parallel approaches are now used in human biomechanics simulation.</div>
+    </div>
+
+    <div id="exp-obs" class="expand-panel">
+      <h4>👁 Observation / State</h4>
+      <p>At each timestep, the environment sends the agent a snapshot of the current world. This is the raw input the agent's neural network receives and must be informative enough to choose a good action.</p>
+      <ul>
+        <li><strong>In this arm project:</strong> 8 numbers — [θ₁, θ₂, dθ₁, dθ₂, x_t, y_t, x_e, y_e]</li>
+        <li><strong>Observation space:</strong> Defined as a <code>Box</code> with lower and upper bounds per dimension.</li>
+        <li><strong>Partial observability:</strong> If the agent can't see the full state (cameras only), it's a POMDP — common in real robot deployments.</li>
+      </ul>
+      <div class="ep-bio"><strong>🦴 In Biomechanics:</strong> The observation vector typically contains <strong>joint angles</strong> (kinematics), <strong>joint angular velocities</strong>, <strong>ground reaction forces</strong>, <strong>muscle fibre lengths and velocities</strong>, and sometimes <strong>vestibular/proprioceptive signals</strong>. Biomechanics researchers carefully choose which sensors are "biologically plausible" — a real human doesn't measure their own joint angles directly; they use proprioception, which is noisier and indirect.</div>
+      <div class="ep-paper"><strong>Latest:</strong> Chen et al., "Decision Transformer" (NeurIPS 2021) — processes sequential observation-action-reward histories as language tokens, enabling conditioning on desired future performance.</div>
+    </div>
+
+    <div id="exp-action" class="expand-panel">
+      <h4>⚡ Action Space</h4>
+      <p>The action is what the agent outputs each timestep — a command sent to the environment. The <strong>action space</strong> defines what actions are valid.</p>
+      <ul>
+        <li><strong>Discrete actions:</strong> A finite set of choices. Used in games. DQN is the classic algorithm.</li>
+        <li><strong>Continuous actions:</strong> A real-valued vector (joint torques, wheel speeds). PPO, SAC, TD3 handle these.</li>
+        <li><strong>In this arm project:</strong> 2D continuous — [a₁, a₂] ∈ [−1, 1] — velocity commands for the two joints.</li>
+      </ul>
+      <div class="ep-bio"><strong>🦴 In Biomechanics:</strong> Actions are almost always <strong>muscle excitation signals</strong> — values in [0, 1] representing the neural drive sent to each muscle. A human body model with 92 muscles (like the Rajagopal 2016 OpenSim model) has a 92-dimensional action space. The musculotendon dynamics then convert excitation → activation → muscle force → joint torque → body segment acceleration. This is far more complex than simple torque control and is the main reason biomechanics RL is computationally demanding.</div>
+      <div class="ep-paper"><strong>Latest:</strong> H-PPO (Fan et al., 2019) — handles hybrid action spaces mixing discrete (which muscle group to activate) with continuous (how much), relevant for synergy-based control models.</div>
+    </div>
+
+    <div id="exp-reward" class="expand-panel">
+      <h4>🏆 Reward Signal</h4>
+      <p>The reward is a single number given by the environment at each step — the only feedback signal. Designing a good reward function is one of the hardest parts of RL, especially in biomechanics where the objective (healthy walking) is hard to quantify.</p>
+      <ul>
+        <li><strong>Dense reward:</strong> Given every step (e.g. −distance to target). Easier to learn from.</li>
+        <li><strong>Sparse reward:</strong> Only given at the end. Harder but more natural to specify.</li>
+        <li><strong>In this arm project:</strong> r = −dist + success_bonus − λ·‖action‖²</li>
+        <li><strong>Return G_t:</strong> G_t = r_t + γ·r_{t+1} + γ²·r_{t+2} + … (γ = discount factor)</li>
+      </ul>
+      <div class="ep-bio"><strong>🦴 In Biomechanics:</strong> Reward functions typically combine several terms: <strong>task reward</strong> (e.g. walking speed or reaching accuracy), <strong>imitation reward</strong> (closeness to reference motion capture data), <strong>metabolic cost penalty</strong> (oxygen consumption estimated via Umberger's model), and <strong>smoothness penalty</strong> (penalise jerky muscle activations). Getting this balance right is the core research challenge — overweight imitation and the agent never generalises; overweight task and the agent finds unrealistic shortcuts.</div>
+      <div class="ep-paper"><strong>Latest:</strong> Christiano et al., "Deep RL from Human Preferences" (NeurIPS 2017) — RLHF lets clinicians or biomechanists directly label which simulated movements look more natural, learning the reward function from expert judgement.</div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ══════════════ OBSERVATION & ACTION SPACES ══════════════ -->
+  <section class="fade">
+    <div class="sec-label">Spaces</div>
+    <h2 class="sec-title">Observation Space & Action Space</h2>
+    <p class="sec-body">Every RL environment formally defines two spaces. These are core to the Gymnasium API and have direct analogues in biomechanical modelling.</p>
+    <div class="spaces-grid">
+      <div class="space-card obs-card">
+        <div class="space-head"><span class="space-head-icon">👁</span><div><div class="space-head-title">Observation Space</div><div style="font-size:11px;color:var(--muted);font-weight:500">What the agent perceives</div></div></div>
+        <div class="space-body">
+          <p class="space-desc">A structured description of every piece of information the agent receives each step. Gymnasium uses <code>Box</code> for continuous spaces — you specify shape, dtype, and min/max bounds for each dimension.</p>
+          <div class="space-items">
+            <div class="space-item"><strong>θ₁, θ₂</strong> — shoulder &amp; elbow joint angles (rad), wraps to [−π, π]</div>
+            <div class="space-item"><strong>dθ₁, dθ₂</strong> — joint angular velocities (rad/s)</div>
+            <div class="space-item"><strong>x_t, y_t</strong> — target position in 2D Cartesian space (m)</div>
+            <div class="space-item"><strong>x_e, y_e</strong> — end-effector (wrist) position in 2D (m)</div>
+            <div class="space-item" style="border-left-color:#15803d;background:#f0fdf4"><strong>🦴 Biomechanics adds:</strong> GRF (ground reaction forces), muscle fibre lengths, metabolic state, vestibular signals, segment orientations</div>
+          </div>
+        </div>
+      </div>
+      <div class="space-card act-card">
+        <div class="space-head"><span class="space-head-icon">⚡</span><div><div class="space-head-title">Action Space</div><div style="font-size:11px;color:var(--muted);font-weight:500">What the agent controls</div></div></div>
+        <div class="space-body">
+          <p class="space-desc">Defines the range and shape of commands the agent can output. In this project the action space is <strong>continuous</strong> — two real numbers scaled to joint velocity commands. Defined as <code>Box(−1, 1, shape=(2,))</code>.</p>
+          <div class="space-items">
+            <div class="space-item"><strong>a₁</strong> — shoulder joint velocity command ∈ [−1, 1]</div>
+            <div class="space-item"><strong>a₂</strong> — elbow joint velocity command ∈ [−1, 1]</div>
+            <div class="space-item"><strong>Velocity mode:</strong> action directly sets dθ — simpler, faster to train</div>
+            <div class="space-item"><strong>Torque mode:</strong> action sets forces — more realistic, harder</div>
+            <div class="space-item" style="border-left-color:#15803d;background:#f0fdf4"><strong>🦴 Biomechanics uses:</strong> Muscle excitation signals ∈ [0,1] — one per muscle (e.g. 92 muscles = 92-dimensional action space)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ══════════════ MODEL-BASED vs MODEL-FREE ══════════════ -->
+  <section class="fade">
+    <div class="sec-label">Algorithm Taxonomy</div>
+    <h2 class="sec-title">Model-Based vs Model-Free RL</h2>
+    <p class="sec-body">The biggest divide in RL algorithm design is whether the agent builds an explicit <em>model</em> of how the environment works, or learns purely from trial-and-error experience.</p>
+    <div class="tax-grid">
+      <div class="tax-card mb">
+        <div class="tax-header"><span class="tax-icon">🗺</span><div><div class="tax-title">Model-Based RL</div><div class="tax-subtitle">Learns a model of the world first</div></div></div>
+        <div class="tax-body">
+          <p class="tax-desc">The agent learns (or is given) a <strong>transition model</strong> that predicts the next state and reward for any action. It can then <em>imagine</em> future trajectories and plan without experiencing them.</p>
+          <div class="tax-pros">
+            <div class="tax-pro">Much more <strong>sample efficient</strong> — fewer real interactions needed</div>
+            <div class="tax-pro">Can plan ahead explicitly before acting</div>
+            <div class="tax-pro">Great when real-world data is expensive (real patients, real robots)</div>
+            <div class="tax-pro">In biomechanics: uses the musculoskeletal model itself as the world model</div>
+          </div>
+          <p style="font-size:12px;color:var(--muted);margin-bottom:8px"><strong>Notable algorithms:</strong> Dyna-Q, MBPO, DreamerV3, MuZero, PILCO, SCONE's CMA-ES</p>
+          <p style="font-size:12px;color:var(--muted);margin-bottom:8px"><strong>Biomechanics note:</strong> OpenSim + predictive simulation is inherently model-based — the physics IS the model. Direct collocation optimisation (e.g. GPOPS-II) is a classical model-based approach.</p>
+          <div class="tax-paper"><strong>Key paper:</strong> Hafner et al., "DreamerV3" (2023) — model-based agent achieving human-level across 150+ tasks, now being applied to legged locomotion.</div>
+        </div>
+      </div>
+      <div class="tax-card mf">
+        <div class="tax-header"><span class="tax-icon">🎲</span><div><div class="tax-title">Model-Free RL</div><div class="tax-subtitle">Learns directly from experience</div></div></div>
+        <div class="tax-body">
+          <p class="tax-desc">The agent learns its policy directly from observed transitions — without building a model. It simply tries things, sees what happens, and updates based on the reward signal.</p>
+          <div class="tax-pros">
+            <div class="tax-pro">Simpler to implement and debug</div>
+            <div class="tax-pro">No model bias — learns true environment behaviour</div>
+            <div class="tax-pro">Works well in simulation where interactions are computationally cheap</div>
+            <div class="tax-pro">PPO, SAC, TD3 are all model-free — <strong>what this project uses</strong></div>
+          </div>
+          <p style="font-size:12px;color:var(--muted);margin-bottom:8px"><strong>Notable algorithms:</strong> PPO, SAC, TD3, DDPG, A3C</p>
+          <p style="font-size:12px;color:var(--muted);margin-bottom:8px"><strong>Biomechanics note:</strong> DeepMimic, ScaDiver, and most recent gait simulation papers use model-free RL (PPO or SAC) with physics simulators like MuJoCo as the environment.</p>
+          <div class="tax-paper"><strong>Key paper:</strong> Schulman et al., "Proximal Policy Optimization" (2017) — PPO remains the most common algorithm in biomechanics RL literature due to stability and simplicity.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Family tree SVG -->
+    <div style="background:var(--card);border:1.5px solid var(--border);border-radius:10px;padding:24px 28px;margin-bottom:12px;">
+      <p style="font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:16px;">Algorithm Family Tree</p>
+      <svg width="100%" viewBox="0 0 860 200" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">
+        <rect x="330" y="10" width="200" height="36" rx="6" fill="#1A1714"/>
+        <text x="430" y="33" font-family="Georgia,serif" font-size="13" font-weight="700" fill="#F7F4EF" text-anchor="middle">Reinforcement Learning</text>
+        <line x1="430" y1="46" x2="215" y2="90" stroke="#9CA3AF" stroke-width="1.5"/>
+        <line x1="430" y1="46" x2="645" y2="90" stroke="#9CA3AF" stroke-width="1.5"/>
+        <rect x="100" y="90" width="230" height="32" rx="6" fill="#FDF2F8" stroke="#FBCFE8" stroke-width="1.5"/>
+        <text x="215" y="111" font-family="Georgia,serif" font-size="12" font-weight="700" fill="#BE185D" text-anchor="middle">🗺 Model-Based</text>
+        <rect x="530" y="90" width="230" height="32" rx="6" fill="#ECFDF5" stroke="#A7F3D0" stroke-width="1.5"/>
+        <text x="645" y="111" font-family="Georgia,serif" font-size="12" font-weight="700" fill="#065F46" text-anchor="middle">🎲 Model-Free</text>
+        <line x1="160" y1="122" x2="100" y2="158" stroke="#FBCFE8" stroke-width="1.5"/>
+        <line x1="215" y1="122" x2="215" y2="158" stroke="#FBCFE8" stroke-width="1.5"/>
+        <line x1="270" y1="122" x2="330" y2="158" stroke="#FBCFE8" stroke-width="1.5"/>
+        <rect x="30" y="158" width="130" height="28" rx="5" fill="#FDF2F8" stroke="#FBCFE8" stroke-width="1"/>
+        <text x="95" y="177" font-family="sans-serif" font-size="11" fill="#BE185D" text-anchor="middle" font-weight="600">DreamerV3</text>
+        <rect x="150" y="158" width="130" height="28" rx="5" fill="#FDF2F8" stroke="#FBCFE8" stroke-width="1"/>
+        <text x="215" y="177" font-family="sans-serif" font-size="11" fill="#BE185D" text-anchor="middle" font-weight="600">MuZero / PILCO</text>
+        <rect x="270" y="158" width="130" height="28" rx="5" fill="#FDF2F8" stroke="#FBCFE8" stroke-width="1"/>
+        <text x="335" y="177" font-family="sans-serif" font-size="11" fill="#BE185D" text-anchor="middle" font-weight="600">MBPO / CMA-ES</text>
+        <line x1="600" y1="122" x2="565" y2="158" stroke="#A7F3D0" stroke-width="1.5"/>
+        <line x1="690" y1="122" x2="725" y2="158" stroke="#A7F3D0" stroke-width="1.5"/>
+        <rect x="480" y="158" width="160" height="28" rx="5" fill="#F0FDF4" stroke="#A7F3D0" stroke-width="1"/>
+        <text x="560" y="177" font-family="sans-serif" font-size="11" fill="#065F46" text-anchor="middle" font-weight="600">On-Policy: PPO, A3C</text>
+        <rect x="660" y="158" width="185" height="28" rx="5" fill="#F0FDF4" stroke="#A7F3D0" stroke-width="1"/>
+        <text x="752" y="177" font-family="sans-serif" font-size="11" fill="#065F46" text-anchor="middle" font-weight="600">Off-Policy: SAC, TD3, DQN</text>
+      </svg>
+    </div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:0"><strong>On-Policy</strong> algorithms (PPO) learn from the experience collected with the current policy. <strong>Off-Policy</strong> algorithms (SAC, TD3) reuse older experience from a replay buffer, making them more sample-efficient.</p>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ══════════════ ALGORITHM CARDS ══════════════ -->
+  <section class="fade">
+    <div class="sec-label">Algorithms Used in This Project</div>
+    <h2 class="sec-title">PPO, SAC & TD3 explained</h2>
+    <p class="sec-body">All three are <strong>model-free</strong> and handle <strong>continuous action spaces</strong> — making them ideal for robotic arm and musculoskeletal control alike.</p>
+    <div class="algo-grid">
+      <div class="algo-card" data-algo="PPO">
+        <div class="algo-stripe"></div>
+        <div class="algo-inner">
+          <div class="algo-meta"><div class="algo-name">PPO</div><div class="algo-badge">On-Policy</div></div>
+          <div class="algo-full">Proximal Policy Optimization</div>
+          <p class="algo-desc">PPO improves the policy in small, safe steps — never updating so aggressively that it breaks current behaviour. Remarkably stable across a vast range of tasks.</p>
+          <div class="algo-pros">
+            <div class="algo-pro">Simple to tune — few sensitive hyperparameters</div>
+            <div class="algo-pro">Very stable — rarely diverges even with complex body models</div>
+            <div class="algo-pro">Default algorithm in most biomechanics RL papers (DeepMimic, ScaDiver)</div>
+            <div class="algo-pro">Native SB3 support with EvalCallback</div>
+          </div>
+          <div class="algo-paper"><strong>Paper:</strong> Schulman et al., <em>"Proximal Policy Optimization Algorithms"</em> (OpenAI, 2017). Also powers OpenAI Five (Dota 2) and ChatGPT's RLHF fine-tuning stage.</div>
+          <div class="algo-rec">⭐ Recommended starting point</div>
+        </div>
+      </div>
+      <div class="algo-card" data-algo="SAC">
+        <div class="algo-stripe"></div>
+        <div class="algo-inner">
+          <div class="algo-meta"><div class="algo-name">SAC</div><div class="algo-badge">Off-Policy</div></div>
+          <div class="algo-full">Soft Actor-Critic</div>
+          <p class="algo-desc">SAC maximises both reward and entropy — the latter encourages wide exploration. Off-policy replay buffer makes it significantly more sample-efficient than PPO.</p>
+          <div class="algo-pros">
+            <div class="algo-pro">Significantly more sample-efficient than PPO</div>
+            <div class="algo-pro">Built-in exploration via entropy maximisation</div>
+            <div class="algo-pro">Excellent for high-DoF musculoskeletal control</div>
+            <div class="algo-pro">Used in recent biomechanics work (Kidzinski et al. 2020)</div>
+          </div>
+          <div class="algo-paper"><strong>Paper:</strong> Haarnoja et al., <em>"Soft Actor-Critic"</em> (ICML, 2018). State-of-the-art for continuous robotic and musculoskeletal control.</div>
+          <div class="algo-rec">⚡ Best for continuous control</div>
+        </div>
+      </div>
+      <div class="algo-card" data-algo="TD3">
+        <div class="algo-stripe"></div>
+        <div class="algo-inner">
+          <div class="algo-meta"><div class="algo-name">TD3</div><div class="algo-badge">Off-Policy</div></div>
+          <div class="algo-full">Twin Delayed Deep Deterministic</div>
+          <p class="algo-desc">TD3 fixes overestimation bias using two critic networks and delayed policy updates. Deterministic policy is easier to evaluate and interpret — useful in biomechanics where interpretability matters.</p>
+          <div class="algo-pros">
+            <div class="algo-pro">More stable than DDPG (its predecessor)</div>
+            <div class="algo-pro">Deterministic policy — interpretable muscle activation patterns</div>
+            <div class="algo-pro">Two critics prevent overestimation of Q-values</div>
+            <div class="algo-pro">Good for low-dimensional arm/hand control tasks</div>
+          </div>
+          <div class="algo-paper"><strong>Paper:</strong> Fujimoto et al., <em>"Addressing Function Approximation Error in Actor-Critic Methods"</em> (ICML, 2018).</div>
+          <div class="algo-rec">🎯 Good deterministic alternative</div>
+        </div>
+      </div>
+      <div class="algo-card" data-algo="DQN">
+        <div class="algo-stripe"></div>
+        <div class="algo-inner">
+          <div class="algo-meta"><div class="algo-name">DQN</div><div class="algo-badge">Off-Policy</div></div>
+          <div class="algo-full">Deep Q-Network</div>
+          <p class="algo-desc">DQN launched modern deep RL (DeepMind, 2013). Learns Q-values over <em>discrete</em> actions. Not used in this project (arm needs continuous outputs), but foundational to understand.</p>
+          <div class="algo-pros">
+            <div class="algo-pro">Foundation of all Q-learning algorithms</div>
+            <div class="algo-pro">Applicable to discrete gait phase selection problems</div>
+            <div class="algo-pro">Many modern extensions: Rainbow, C51, IQN</div>
+            <div class="algo-pro">Well-studied, vast literature</div>
+          </div>
+          <div class="algo-paper"><strong>Paper:</strong> Mnih et al., <em>"Human-level control through deep RL"</em> (Nature, 2015). First RL system achieving superhuman Atari performance across 49 games.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ══════════════ POLICY TYPES ══════════════ -->
+  <section class="fade">
+    <div class="sec-label">Core Concept</div>
+    <h2 class="sec-title">What is a Policy?</h2>
+    <p class="sec-body">The policy is the agent's strategy — a function mapping observations to actions. Learning the best policy is the entire goal of RL training.</p>
+    <div class="policy-grid">
+      <div class="policy-card"><div class="policy-icon">📐</div><div class="policy-title">Deterministic Policy</div><p class="policy-text">Always outputs the same action for a given state: a = π(s). Used by TD3. Faster to evaluate but no built-in exploration. In biomechanics: directly predicts a muscle activation profile.</p></div>
+      <div class="policy-card"><div class="policy-icon">🎲</div><div class="policy-title">Stochastic Policy</div><p class="policy-text">Outputs a probability distribution over actions: a ~ π(·|s). Used by PPO and SAC. Randomness drives exploration during training — important when the human body has many equivalent movement solutions.</p></div>
+      <div class="policy-card"><div class="policy-icon">🧠</div><div class="policy-title">Neural Network Policy</div><p class="policy-text">In deep RL, the policy is a neural network. In biomechanics, this acts as a <em>neuromuscular controller</em> — analogous to the spinal cord and motor cortex encoding movement strategies.</p></div>
+      <div class="policy-card"><div class="policy-icon">📈</div><div class="policy-title">Value Function</div><p class="policy-text">Estimates expected future reward from a state. Actor-critic methods (PPO, SAC) train both a policy (actor) and value estimator (critic) simultaneously. In biomechanics, the critic learns what constitutes a "good" posture or gait phase.</p></div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ══════════════ BIOMECHANICS CONTEXT ══════════════ -->
+  <section class="fade">
+    <div class="sec-label bio">🦴 Biomechanics Applications</div>
+    <h2 class="sec-title">RL in Biomechanics Research</h2>
+    <p class="sec-body">Reinforcement learning has become a primary tool for understanding human and animal movement. Every RL component maps to a biomechanical concept — the same framework that teaches a simulated arm to reach also teaches a simulated human to walk, run, and recover from perturbations.</p>
+
+    <div class="bio-banner">
+      <div class="bio-banner-label">Why RL for Biomechanics?</div>
+      <h3>Movement as an optimisation problem</h3>
+      <p>The central hypothesis of computational motor control is that the nervous system acts as an optimal controller — selecting movements that minimise effort, maximise stability, or maximise task success. RL provides a principled computational framework to test this hypothesis. By defining a musculoskeletal model as the environment and muscle activations as actions, researchers can <strong>simulate how a biological controller might learn</strong> and compare the emergent behaviour to real human data collected via motion capture and electromyography (EMG).</p>
+    </div>
+
+    <!-- Bio component mapping -->
+    <h3 style="font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:var(--ink);margin-bottom:20px;letter-spacing:-0.01em;">RL Component → Biomechanics Concept</h3>
+    <div class="bio-comp-grid">
+
+      <div class="bio-comp">
+        <div class="bio-comp-head">
+          <span class="bio-comp-icon">🤖</span>
+          <div class="bio-comp-title">Agent → CNS / Motor Controller</div>
+          <span class="bio-comp-rl">RL: Agent</span>
+        </div>
+        <p class="bio-comp-desc">The RL agent represents the central nervous system (CNS) or a neuromuscular controller. The neural network policy encodes learned motor strategies.</p>
+        <ul class="bio-comp-list">
+          <li><strong>Reflex arcs</strong> modelled as fast feedback loops within the policy</li>
+          <li><strong>Central pattern generators (CPGs)</strong> encoded as periodic policy structure</li>
+          <li><strong>Motor cortex</strong> approximated by the high-level policy network</li>
+          <li>Recent work uses <strong>hierarchical policies</strong> (high-level: task; low-level: muscle activation)</li>
+        </ul>
+      </div>
+
+      <div class="bio-comp">
+        <div class="bio-comp-head">
+          <span class="bio-comp-icon">🌍</span>
+          <div class="bio-comp-title">Environment → Musculoskeletal Model</div>
+          <span class="bio-comp-rl">RL: Env</span>
+        </div>
+        <p class="bio-comp-desc">The environment is a full-body musculoskeletal simulation — bones, joints, muscles, tendons, and ground contact — built in simulators like MuJoCo, OpenSim, or SCONE.</p>
+        <ul class="bio-comp-list">
+          <li><strong>MuJoCo</strong> — fast rigid body physics; used in DeepMimic and MyoSuite</li>
+          <li><strong>OpenSim</strong> — clinically validated models; slower but biomechanically rich</li>
+          <li><strong>SCONE</strong> — specifically designed for predictive neuromusculoskeletal simulation</li>
+          <li>Ground contact, joint limits, and tendon compliance included in state update</li>
+        </ul>
+      </div>
+
+      <div class="bio-comp">
+        <div class="bio-comp-head">
+          <span class="bio-comp-icon">👁</span>
+          <div class="bio-comp-title">Observation → Proprioception + Sensing</div>
+          <span class="bio-comp-rl">RL: Obs Space</span>
+        </div>
+        <p class="bio-comp-desc">The observation vector contains biologically plausible sensory signals that approximate what the nervous system actually receives.</p>
+        <ul class="bio-comp-list">
+          <li><strong>Proprioception:</strong> muscle fibre length, velocity, force (spindles &amp; Golgi organs)</li>
+          <li><strong>Vestibular:</strong> trunk orientation, angular velocity</li>
+          <li><strong>Cutaneous:</strong> ground reaction force via foot contact sensors</li>
+          <li><strong>Vision:</strong> target location, terrain height maps (for rough-terrain walking)</li>
+          <li>Adding <strong>noise</strong> to observations improves robustness and biological realism</li>
+        </ul>
+      </div>
+
+      <div class="bio-comp">
+        <div class="bio-comp-head">
+          <span class="bio-comp-icon">⚡</span>
+          <div class="bio-comp-title">Action → Muscle Excitation Signals</div>
+          <span class="bio-comp-rl">RL: Action Space</span>
+        </div>
+        <p class="bio-comp-desc">Actions are muscle excitation values ∈ [0, 1] sent to each muscle in the model. Musculotendon dynamics convert excitation → activation → force.</p>
+        <ul class="bio-comp-list">
+          <li>Full-body models: <strong>92 muscles</strong> (Rajagopal 2016), creating a high-dimensional action space</li>
+          <li><strong>Muscle synergies</strong> reduce dimensionality — instead of 92 muscles, control 5–10 synergy weights</li>
+          <li>Hill-type muscle model: contractile element + passive element + tendon</li>
+          <li>Activation dynamics add a delay: excitation → activation (τ ≈ 10–30 ms)</li>
+        </ul>
+      </div>
+
+      <div class="bio-comp">
+        <div class="bio-comp-head">
+          <span class="bio-comp-icon">🏆</span>
+          <div class="bio-comp-title">Reward → Biological Objectives</div>
+          <span class="bio-comp-rl">RL: Reward</span>
+        </div>
+        <p class="bio-comp-desc">Biomechanics reward functions combine task performance, metabolic cost, and imitation of reference motion data to produce human-like movement.</p>
+        <ul class="bio-comp-list">
+          <li><strong>Walking speed reward:</strong> r_task = v_pelvis × dt</li>
+          <li><strong>Metabolic cost penalty:</strong> Umberger (2010) model of oxygen consumption</li>
+          <li><strong>Imitation reward:</strong> closeness to motion capture reference trajectories</li>
+          <li><strong>Effort penalty:</strong> −λ·‖excitations‖² penalises unnecessary muscle activation</li>
+          <li><strong>Balance reward:</strong> penalise excessive trunk lean or centre-of-mass deviation</li>
+        </ul>
+      </div>
+
+      <div class="bio-comp">
+        <div class="bio-comp-head">
+          <span class="bio-comp-icon">📈</span>
+          <div class="bio-comp-title">Policy → Motor Control Strategy</div>
+          <span class="bio-comp-rl">RL: Policy</span>
+        </div>
+        <p class="bio-comp-desc">The learned policy encodes a complete motor control strategy — analogous to the neural circuitry that humans develop through childhood motor learning.</p>
+        <ul class="bio-comp-list">
+          <li><strong>Hierarchical policies</strong> model task-level (where to go) and muscle-level (how) separately</li>
+          <li><strong>Phase-based controllers</strong> use gait cycle phase as an additional input</li>
+          <li>Comparing learned muscle activation patterns to <strong>EMG data</strong> validates biological realism</li>
+          <li>Can test <strong>prosthetic/orthotic interventions</strong> by modifying the model and re-evaluating</li>
+        </ul>
+      </div>
+
+    </div>
+
+    <!-- Algorithm usage in biomechanics -->
+    <h3 style="font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:var(--ink);margin-bottom:16px;letter-spacing:-0.01em;">Algorithm Usage in Biomechanics Research</h3>
+    <div class="bio-algo-row">
+      <div class="bio-algo-card ppo">
+        <div class="bio-algo-top">
+          <div class="bio-algo-name">PPO</div>
+          <div class="bio-algo-usage">Most Used</div>
+        </div>
+        <div class="bio-algo-body">
+          <p class="bio-algo-use">The dominant algorithm in biomechanics RL. Used in DeepMimic (motion imitation), MyoSuite (hand/arm control), and most gait simulation papers. Its stability with high-DoF continuous action spaces makes it the go-to choice when muscle activations are the actions.</p>
+          <div class="bio-algo-papers">DeepMimic (Peng et al. 2018), ScaDiver (Won et al. 2020), MyoSuite (Caggiano et al. 2022), Kidzinski et al. Learn-to-Move 2019</div>
+        </div>
+      </div>
+      <div class="bio-algo-card sac">
+        <div class="bio-algo-top">
+          <div class="bio-algo-name">SAC</div>
+          <div class="bio-algo-usage">Growing Use</div>
+        </div>
+        <div class="bio-algo-body">
+          <p class="bio-algo-use">Increasingly adopted in biomechanics for its superior sample efficiency. Entropy maximisation encourages diverse movement solutions — useful for studying motor variability. Used in recent prosthetics control and upper-limb rehabilitation research.</p>
+          <div class="bio-algo-papers">Kidzinski et al. (2020), Durandau et al. — EMG-driven control (2023), recent MyoChallenge entries using SAC with muscle synergies</div>
+        </div>
+      </div>
+      <div class="bio-algo-card td3">
+        <div class="bio-algo-top">
+          <div class="bio-algo-name">TD3</div>
+          <div class="bio-algo-usage">Specialised Use</div>
+        </div>
+        <div class="bio-algo-body">
+          <p class="bio-algo-use">Used in cases where a deterministic, interpretable policy is needed — for example, when the learned muscle activation patterns are compared directly to EMG recordings. Determinism makes it easier to analyse which muscles are active in which phase.</p>
+          <div class="bio-algo-papers">Some exoskeleton assistance optimisation work; low-DoF joint control studies; prosthetic socket fit optimisation</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ══════════════ GAIT PAPER LIBRARY ══════════════ -->
+  <section class="fade">
+    <div class="sec-label bio">📚 Literature</div>
+    <h2 class="sec-title">RL in Human Gait Simulation</h2>
+    <p class="sec-body">The following papers represent key milestones in using reinforcement learning to simulate and understand human gait. Click any paper to expand its full contribution and key findings.</p>
+  </section>
+
+  <div class="paper-library fade">
+    <div class="paper-lib-header">
+      <div class="paper-lib-title-block">
+        <div class="paper-lib-eyebrow">Research Library · Human Gait Simulation</div>
+        <div class="paper-lib-title">Reinforcement Learning × Biomechanics</div>
+        <p class="paper-lib-sub">Seminal and recent papers using RL to simulate, understand, and augment human gait. Click any card to expand.</p>
+      </div>
+    </div>
+    <div class="paper-filter-row">
+      <button class="pfbtn active" onclick="filterPapers('all',this)">All Papers</button>
+      <button class="pfbtn" onclick="filterPapers('ppo',this)">PPO</button>
+      <button class="pfbtn" onclick="filterPapers('sac',this)">SAC</button>
+      <button class="pfbtn" onclick="filterPapers('imitation',this)">Imitation</button>
+      <button class="pfbtn" onclick="filterPapers('prosthetics',this)">Prosthetics</button>
+      <button class="pfbtn" onclick="filterPapers('musculo',this)">Musculoskeletal</button>
+    </div>
+    <div class="paper-cards" id="paper-cards">
+
+      <!-- Paper 1 -->
+      <div class="paper-card" data-tags="ppo imitation musculo" onclick="expandPaper(this)">
+        <div class="paper-card-top">
+          <div class="paper-num">01</div>
+          <div class="paper-meta">
+            <div class="paper-title">DeepMimic: Example-Guided Deep Reinforcement Learning of Physics-Based Character Skills</div>
+            <div class="paper-authors">Peng, X.B., Abbeel, P., Levine, S., van de Panne, M.</div>
+            <div class="paper-venue">ACM SIGGRAPH 2018 · UC Berkeley</div>
+          </div>
+          <div class="paper-expand-hint">▾ expand</div>
+        </div>
+        <div class="paper-tags">
+          <span class="paper-tag algo">PPO</span>
+          <span class="paper-tag topic">Motion Imitation</span>
+          <span class="paper-tag topic">Full-Body Control</span>
+          <span class="paper-tag model">Physics-Based</span>
+        </div>
+        <div class="paper-body">
+          <p class="paper-contribution">DeepMimic introduced the <strong>motion imitation + task reward</strong> framework that became the standard for biomechanics RL. A physics-based character (36 DoF, 152 muscles represented as torque actuators) learns to reproduce reference motion capture clips using PPO, guided by an imitation reward that penalises deviation from the reference trajectory.</p>
+          <div class="paper-findings">
+            <div class="paper-finding"><strong>Key finding:</strong> combining imitation reward (pose, velocity, end-effector) with a task reward enables generalisation beyond the reference clip — the character can walk, run, backflip, and recover from perturbations.</div>
+            <div class="paper-finding"><strong>Observation space:</strong> joint angles, velocities, relative positions of key bodies. <strong>Action space:</strong> joint target positions fed to a PD controller (effectively torque control).</div>
+            <div class="paper-finding"><strong>Reward design:</strong> r = w_p·r_pose + w_v·r_vel + w_e·r_ee + w_com·r_com + w_task·r_task — a weighted sum of pose, velocity, end-effector, centre-of-mass, and task components.</div>
+            <div class="paper-finding"><strong>Biomechanics impact:</strong> established that RL can reproduce human-like movement quality. Successor works (AMP, ASE, PhysDiff) all build on this framework.</div>
+          </div>
+          <a class="paper-link" href="https://arxiv.org/abs/1804.02717" target="_blank">arxiv.org/abs/1804.02717 ↗</a>
+        </div>
+      </div>
+
+      <!-- Paper 2 -->
+      <div class="paper-card" data-tags="sac ppo prosthetics musculo" onclick="expandPaper(this)">
+        <div class="paper-card-top">
+          <div class="paper-num">02</div>
+          <div class="paper-meta">
+            <div class="paper-title">Learning to Run a Power Plant: Solving Complex Sequential Decision Making Problems with a Double-A3C Approach and Application to RL-aided Prosthetics</div>
+            <div class="paper-authors">Kidzinski, Ł., Wang, S.P., Moult, E., Zheng, T., Ho, S., Shakibajahromi, B., …, Delp, S.</div>
+            <div class="paper-venue">NeurIPS 2019 Competition · L2M Challenge · Stanford University</div>
+          </div>
+          <div class="paper-expand-hint">▾ expand</div>
+        </div>
+        <div class="paper-tags">
+          <span class="paper-tag algo">PPO</span>
+          <span class="paper-tag algo">SAC</span>
+          <span class="paper-tag topic">Prosthetics</span>
+          <span class="paper-tag topic">Human Gait</span>
+          <span class="paper-tag model">OpenSim</span>
+        </div>
+        <div class="paper-body">
+          <p class="paper-contribution">The <strong>Learn to Move — Walk Around</strong> NeurIPS challenge used a physiologically accurate OpenSim musculoskeletal model (22 DoF, 92 muscles) and asked competitors to train RL agents to walk naturally. This produced a landmark dataset of RL approaches to human-like gait and prosthetics control.</p>
+          <div class="paper-findings">
+            <div class="paper-finding"><strong>Environment:</strong> OpenSim's gait2392 model — 92 muscles, biologically validated joint limits, ground contact via compliant contact spheres on feet.</div>
+            <div class="paper-finding"><strong>Observation space:</strong> 339 dimensional — includes muscle fibre lengths, velocities, forces, joint angles, GRF, body positions and velocities.</div>
+            <div class="paper-finding"><strong>Key finding:</strong> Standard RL (PPO, SAC) produced realistic gait patterns without explicit reference motion data, driven purely by walking speed reward and metabolic cost penalty.</div>
+            <div class="paper-finding"><strong>Prosthetics relevance:</strong> The framework was extended to simulate walking with transfemoral prostheses, enabling virtual testing of prosthetic components.</div>
+          </div>
+          <a class="paper-link" href="https://arxiv.org/abs/1904.10952" target="_blank">arxiv.org/abs/1904.10952 ↗</a>
+        </div>
+      </div>
+
+      <!-- Paper 3 -->
+      <div class="paper-card" data-tags="ppo musculo imitation" onclick="expandPaper(this)">
+        <div class="paper-card-top">
+          <div class="paper-num">03</div>
+          <div class="paper-meta">
+            <div class="paper-title">MyoSuite — A Contact-Rich Simulation Suite for Musculoskeletal Motor Control</div>
+            <div class="paper-authors">Caggiano, V., Wang, H., Durandau, G., Sartori, M., Kumar, V.</div>
+            <div class="paper-venue">ICLR 2022 · Meta AI Research &amp; University of Twente</div>
+          </div>
+          <div class="paper-expand-hint">▾ expand</div>
+        </div>
+        <div class="paper-tags">
+          <span class="paper-tag algo">PPO</span>
+          <span class="paper-tag topic">Hand &amp; Arm Control</span>
+          <span class="paper-tag topic">Musculoskeletal</span>
+          <span class="paper-tag model">MuJoCo</span>
+        </div>
+        <div class="paper-body">
+          <p class="paper-contribution">MyoSuite introduced a comprehensive MuJoCo-based musculoskeletal simulation benchmark for upper limb (hand, wrist, elbow, shoulder) and lower limb tasks. It provides validated models for studying neuromuscular control and rehabilitation, directly relevant to this project's arm reaching task.</p>
+          <div class="paper-findings">
+            <div class="paper-finding"><strong>Models included:</strong> MyoHand (39 muscles, 23 DoF), MyoLeg (80 muscles, 30 DoF), MyoArm (19 muscles, 7 DoF) — all validated against anatomical data.</div>
+            <div class="paper-finding"><strong>Tasks:</strong> Pen twirling, key turning, die reorientation, reaching, walking — all with contact dynamics. Directly analogous to this project's 2-link arm task but with muscle-level detail.</div>
+            <div class="paper-finding"><strong>Observation space:</strong> includes proprioceptive signals (muscle fibre lengths and velocities) alongside joint kinematics — biologically plausible unlike raw joint angle specifications.</div>
+            <div class="paper-finding"><strong>Key finding:</strong> PPO with curriculum learning (progressively harder tasks) achieves dexterous manipulation that was previously intractable with full muscle actuation.</div>
+            <div class="paper-finding"><strong>Link to this project:</strong> MyoSuite's 2-link arm reaching tasks are a direct musculoskeletal upgrade of the ArmReachEnv built in this pipeline.</div>
+          </div>
+          <a class="paper-link" href="https://arxiv.org/abs/2205.13600" target="_blank">arxiv.org/abs/2205.13600 ↗</a>
+        </div>
+      </div>
+
+      <!-- Paper 4 -->
+      <div class="paper-card" data-tags="ppo imitation musculo" onclick="expandPaper(this)">
+        <div class="paper-card-top">
+          <div class="paper-num">04</div>
+          <div class="paper-meta">
+            <div class="paper-title">Combining Deep Reinforcement Learning and Local Control for Gait Restoration of a Neuromuscular Model with Amputation</div>
+            <div class="paper-authors">Dzeladini, F., Van den Berg, J., Geyer, H., Ijspeert, A.J.</div>
+            <div class="paper-venue">Frontiers in Neurorobotics, 2021 · EPFL &amp; Carnegie Mellon</div>
+          </div>
+          <div class="paper-expand-hint">▾ expand</div>
+        </div>
+        <div class="paper-tags">
+          <span class="paper-tag algo">PPO</span>
+          <span class="paper-tag topic">Amputation</span>
+          <span class="paper-tag topic">Gait Restoration</span>
+          <span class="paper-tag model">Neuromuscular</span>
+        </div>
+        <div class="paper-body">
+          <p class="paper-contribution">This paper demonstrated that RL can restore natural gait patterns after simulated transtibial amputation by combining a high-level PPO policy with low-level reflexive neuromuscular controllers. This hierarchical approach is now a common paradigm in prosthetics and rehabilitation research.</p>
+          <div class="paper-findings">
+            <div class="paper-finding"><strong>Approach:</strong> Hierarchical control — PPO learns high-level gait objectives while biologically-inspired reflex controllers (Geyer model) handle low-level muscle control. This reduces the effective action space dimension dramatically.</div>
+            <div class="paper-finding"><strong>Key finding:</strong> The hybrid RL + reflex approach restored near-natural walking speed and symmetry after amputation, with emergent compensatory strategies that match clinical observations.</div>
+            <div class="paper-finding"><strong>Reward:</strong> Walking speed + symmetry (step length left vs right) + metabolic cost — penalising asymmetric gait quantitatively.</div>
+            <div class="paper-finding"><strong>Relevance:</strong> Establishes that RL can predict which muscle compensation strategies appear post-amputation — enabling virtual testing before physical prosthetic fitting.</div>
+          </div>
+          <a class="paper-link" href="https://www.frontiersin.org/articles/10.3389/fnbot.2021.699537" target="_blank">Frontiers in Neurorobotics 2021 ↗</a>
+        </div>
+      </div>
+
+      <!-- Paper 5 -->
+      <div class="paper-card" data-tags="sac musculo" onclick="expandPaper(this)">
+        <div class="paper-card-top">
+          <div class="paper-num">05</div>
+          <div class="paper-meta">
+            <div class="paper-title">Physics-Based Human Motion Estimation and Synthesis from Videos: Towards Real-World Biomechanics</div>
+            <div class="paper-authors">Xie, Z., Berseth, G., Clary, P., Hurst, J., van de Panne, M.</div>
+            <div class="paper-venue">ICCV 2021 · UBC &amp; Oregon State University</div>
+          </div>
+          <div class="paper-expand-hint">▾ expand</div>
+        </div>
+        <div class="paper-tags">
+          <span class="paper-tag algo">SAC</span>
+          <span class="paper-tag topic">Video-Based</span>
+          <span class="paper-tag topic">Motion Estimation</span>
+          <span class="paper-tag model">Physics-Based</span>
+        </div>
+        <div class="paper-body">
+          <p class="paper-contribution">This paper bridges computer vision and biomechanics: RL is used to <strong>estimate joint forces and muscle contributions</strong> from RGB video alone — without any force plates or motion capture markers. A physics-based RL controller is trained to reproduce the observed video motion, and its internal states (joint torques, muscle forces) are used as biomechanical estimates.</p>
+          <div class="paper-findings">
+            <div class="paper-finding"><strong>Key innovation:</strong> Uses RL as an <em>inverse dynamics solver</em> — the forces that make the simulated body match the video are the estimated real-world biomechanical forces. This is potentially transformative for clinical gait analysis without lab equipment.</div>
+            <div class="paper-finding"><strong>Algorithm:</strong> SAC with video-based pose estimation as the reference signal. The imitation reward tracks keypoint positions in image space.</div>
+            <div class="paper-finding"><strong>Observation space:</strong> augmented with video-derived 2D keypoint positions and estimated 3D poses from a pose estimation network.</div>
+            <div class="paper-finding"><strong>Clinical relevance:</strong> Could enable markerless, in-clinic gait analysis using a standard smartphone camera — dramatically reducing cost and enabling community-based assessment.</div>
+          </div>
+          <a class="paper-link" href="https://arxiv.org/abs/2109.09251" target="_blank">arxiv.org/abs/2109.09251 ↗</a>
+        </div>
+      </div>
+
+      <!-- Paper 6 -->
+      <div class="paper-card" data-tags="ppo imitation musculo" onclick="expandPaper(this)">
+        <div class="paper-card-top">
+          <div class="paper-num">06</div>
+          <div class="paper-meta">
+            <div class="paper-title">Reinforcement Learning of Musculoskeletal Control from Functional Simulations</div>
+            <div class="paper-authors">Geijtenbeek, T.</div>
+            <div class="paper-venue">SCONE Technical Report, 2021 — also: Geijtenbeek et al. SIGGRAPH 2013</div>
+          </div>
+          <div class="paper-expand-hint">▾ expand</div>
+        </div>
+        <div class="paper-tags">
+          <span class="paper-tag algo">PPO</span>
+          <span class="paper-tag topic">Gait Optimisation</span>
+          <span class="paper-tag topic">Neuromuscular</span>
+          <span class="paper-tag model">SCONE / OpenSim</span>
+        </div>
+        <div class="paper-body">
+          <p class="paper-contribution">SCONE (Simulation-based Controller Optimisation for Neuromusculoskeletal Environments) is an open-source platform that combines classical evolutionary optimisation with deep RL to optimise neuromuscular gait controllers. The 2013 SIGGRAPH paper introduced muscle-reflex locomotion controllers optimised by evolutionary strategy; recent SCONE versions integrate PPO.</p>
+          <div class="paper-findings">
+            <div class="paper-finding"><strong>SCONE approach:</strong> Uses CMA-ES (Covariance Matrix Adaptation Evolution Strategy) and PPO to optimise parameterised reflex-based controllers — explicitly encoding neurophysiological reflex loops rather than treating control as a black-box neural network.</div>
+            <div class="paper-finding"><strong>Key contribution:</strong> Showed that biologically realistic gait, including heel strike, stance phase, and toe-off, emerges from optimising metabolic cost + stability — without explicit reference motion.</div>
+            <div class="paper-finding"><strong>Observation space:</strong> Biologically plausible — uses muscle spindle signals (fibre length + velocity), Golgi tendon organ signals (muscle force), and foot contact states.</div>
+            <div class="paper-finding"><strong>Biomechanics validation:</strong> Simulated muscle activation timing compared directly to EMG patterns from healthy subjects — one of the most biologically rigorous validation approaches in the field.</div>
+          </div>
+          <a class="paper-link" href="https://scone.software" target="_blank">scone.software ↗</a>
+        </div>
+      </div>
+
+      <!-- Paper 7 -->
+      <div class="paper-card" data-tags="ppo musculo prosthetics" onclick="expandPaper(this)">
+        <div class="paper-card-top">
+          <div class="paper-num">07</div>
+          <div class="paper-meta">
+            <div class="paper-title">Biomechanically-Informed Neural Network for Interpretable Prosthetic Control Using Deep Reinforcement Learning</div>
+            <div class="paper-authors">Durandau, G., Sartori, M., Hodgson, A.J., et al.</div>
+            <div class="paper-venue">Nature Machine Intelligence, 2023 · University of Twente</div>
+          </div>
+          <div class="paper-expand-hint">▾ expand</div>
+        </div>
+        <div class="paper-tags">
+          <span class="paper-tag algo">PPO</span>
+          <span class="paper-tag topic">Prosthetics</span>
+          <span class="paper-tag topic">EMG-Informed</span>
+          <span class="paper-tag model">Musculoskeletal</span>
+        </div>
+        <div class="paper-body">
+          <p class="paper-contribution">This 2023 paper integrated <strong>EMG-informed musculoskeletal models</strong> with RL to create interpretable controllers for powered prosthetic limbs. Unlike black-box RL policies, the approach constrains the policy network to operate within physiologically plausible activation patterns, validated against real EMG recordings from amputee participants.</p>
+          <div class="paper-findings">
+            <div class="paper-finding"><strong>Key innovation:</strong> Muscle synergy constraints — the RL policy outputs weights for a small number of muscle synergies (5–8) rather than individual muscle activations, reducing the action space from 92D to ~8D while maintaining biological realism.</div>
+            <div class="paper-finding"><strong>Observation space:</strong> includes real-time surface EMG signals from residual limb muscles — making the policy directly applicable to physical prosthetic control (EMG as user intent signal).</div>
+            <div class="paper-finding"><strong>Reward:</strong> tracking accuracy (gait trajectory) + EMG consistency (learned activations match recorded EMG) + metabolic efficiency.</div>
+            <div class="paper-finding"><strong>Clinical relevance:</strong> The learned synergy-based controller was tested on 6 transtibial amputee participants, achieving 94% intent recognition accuracy — demonstrating that RL-trained policies can transfer from simulation to real prosthetics.</div>
+          </div>
+          <a class="paper-link" href="https://doi.org/10.1038/s42256-023-00652-x" target="_blank">Nature Machine Intelligence 2023 ↗</a>
+        </div>
+      </div>
+
+    </div><!-- end paper-cards -->
+  </div><!-- end paper-library -->
+
+  <!-- ══════════════ BRIDGE ══════════════ -->
+  <div class="bridge fade">
+    <div class="bridge-text">
+      <h3>Ready to see the full pipeline?</h3>
+      <p>Now that you understand RL from first principles and its applications in biomechanics — from musculoskeletal environments to muscle excitation action spaces — head to the project workflow to see how all of this is implemented step-by-step for the 2-link arm reaching task.</p>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <a href="arm_rl_flowchart.html" class="bridge-btn">View Project Workflow →</a>
+      <a href="arm_rl_architecture.html" class="bridge-btn">View Arm Architecture →</a>
+    </div>
+  </div>
+
+</div><!-- end wrap -->
+
+<script>
+  function toggle(id) {
+    const panel = document.getElementById(id);
+    document.querySelectorAll('.expand-panel').forEach(p => {
+      if (p.id !== id) p.classList.remove('open');
+    });
+    panel.classList.toggle('open');
+    if (panel.classList.contains('open')) {
+      setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
+    }
+  }
+
+  function expandPaper(card) {
+    const body = card.querySelector('.paper-body');
+    const hint = card.querySelector('.paper-expand-hint');
+    const isOpen = body.classList.contains('open');
+    // Close all
+    document.querySelectorAll('.paper-body').forEach(b => b.classList.remove('open'));
+    document.querySelectorAll('.paper-expand-hint').forEach(h => h.textContent = '▾ expand');
+    // Toggle this one
+    if (!isOpen) {
+      body.classList.add('open');
+      hint.textContent = '▴ close';
+      setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 80);
+    }
+  }
+
+  function filterPapers(tag, btn) {
+    document.querySelectorAll('.pfbtn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.paper-card').forEach(card => {
+      if (tag === 'all' || card.dataset.tags.includes(tag)) {
+        card.style.display = '';
+        card.style.animation = 'fadeUp 0.3s ease both';
+      } else {
+        card.style.display = 'none';
+      }
+    });
+  }
+</script>
+</body>
+</html>
