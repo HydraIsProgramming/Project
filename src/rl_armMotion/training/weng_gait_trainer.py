@@ -17,7 +17,7 @@ from typing import Any, Dict, Optional, Tuple, List
 
 import numpy as np
 from stable_baselines3 import PPO, SAC
-from stable_baselines3.common.callbacks import BaseCallback
+from stable_baselines3.common.callbacks import BaseCallback, CallbackList
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.evaluation import evaluate_policy
 
@@ -67,11 +67,22 @@ def _default_hyperparams(algorithm: str) -> Dict[str, Any]:
 
 
 class PenaltyRampCallback(BaseCallback):
-    """Callback that linearly increases penalty multipliers during training."""
+    """Callback that linearly increases penalty multipliers and advances the curriculum.
 
-    def __init__(self, env: WengGaitEnv, verbose: int = 0) -> None:
+    This callback updates the penalty schedule based on the fraction of
+    training completed and automatically progresses through the
+    stabilise→step→walk curriculum.  Curriculum thresholds are
+    configurable via the ``curriculum_thresholds`` argument.
+    """
+
+    def __init__(self, env: WengGaitEnv, curriculum_thresholds: Tuple[float, float] = (0.33, 0.66), verbose: int = 0) -> None:
         super().__init__(verbose)
         self.env = env
+        # Two threshold fractions at which to transition from stage 1→2 and 2→3
+        # Values must be in increasing order between 0 and 1.
+        if not (0.0 <= curriculum_thresholds[0] <= curriculum_thresholds[1] <= 1.0):
+            raise ValueError("curriculum_thresholds must be monotonic between 0 and 1")
+        self.threshold_stage2, self.threshold_stage3 = curriculum_thresholds
 
     def _on_step(self) -> bool:
         # Update penalty schedule based on progress_remaining provided by SB3
@@ -79,7 +90,108 @@ class PenaltyRampCallback(BaseCallback):
         # Convert progress_remaining (1→0) to fraction completed (0→1)
         fraction_completed = 1.0 - float(progress_remaining)
         self.env.penalty_schedule.update(fraction_completed)
+        # Automated curriculum progression: advance to stage 2 and 3 at thresholds
+        try:
+            # Use explicit API on environment when available
+            if fraction_completed >= self.threshold_stage2 and self.env.curriculum_stage < 2:
+                self.env.set_curriculum_stage(2)  # type: ignore[attr-defined]
+            if fraction_completed >= self.threshold_stage3 and self.env.curriculum_stage < 3:
+                self.env.set_curriculum_stage(3)  # type: ignore[attr-defined]
+        except AttributeError:
+            # Fallback: directly set stage attribute if set_curriculum_stage not defined
+            if fraction_completed >= self.threshold_stage2 and self.env.curriculum_stage < 2:
+                self.env.curriculum_stage = 2
+            if fraction_completed >= self.threshold_stage3 and self.env.curriculum_stage < 3:
+                self.env.curriculum_stage = 3
         return True
+
+
+class LoggingCallback(BaseCallback):
+    """Callback that records per‑episode metrics during training.
+
+    The callback accumulates reward and metric sums for each episode and
+    stores them in a list of dictionaries.  At the end of training the
+    collected data can be written to a CSV file when ``log_path`` is
+    provided.  The logged metrics include episode reward, episode
+    length, accumulated smoothness and effort penalties, joint and
+    stability penalties, the curriculum stage, and a simple success flag.
+    """
+
+    def __init__(self, env: WengGaitEnv, log_path: Optional[str] = None, verbose: int = 0) -> None:
+        super().__init__(verbose)
+        self.env = env
+        self.log_path = log_path
+        # Internal accumulators
+        self._current_reward = 0.0
+        self._current_length = 0
+        self._current_smoothness = 0.0
+        self._current_effort = 0.0
+        self._current_joint = 0.0
+        self._current_stability = 0.0
+        self._episodes_data: List[Dict[str, Any]] = []
+        self._episode_index = 0
+
+    def _on_step(self) -> bool:
+        # Extract per‑step info; assume single environment (vectorised envs wrap this callback separately)
+        reward = float(self.locals.get("rewards", [0.0])[0])  # type: ignore[index]
+        info = {}
+        if "infos" in self.locals and isinstance(self.locals["infos"], (list, tuple)) and self.locals["infos"]:
+            info = self.locals["infos"][0] or {}
+        done_flags = self.locals.get("dones", [False])  # type: ignore[index]
+        done = bool(done_flags[0])
+        # Accumulate metrics
+        self._current_reward += reward
+        self._current_length += 1
+        # Sum penalties; use .get() with default 0.0 when absent
+        if isinstance(info, dict):
+            self._current_smoothness += float(info.get("smoothness_penalty", 0.0))
+            self._current_effort += float(info.get("effort_penalty", 0.0))
+            self._current_joint += float(info.get("joint_limit_penalty", 0.0))
+            self._current_stability += float(info.get("stability_penalty", 0.0))
+        # When episode terminates or truncates, record metrics and reset accumulators
+        if done:
+            # Determine success: if the agent remained within goal tolerance long enough
+            # We use the environment's internal success counter relative to hold requirement
+            try:
+                success = 1 if self.env._success_counter >= self.env._hold_required else 0  # type: ignore[attr-defined]
+            except Exception:
+                success = 0
+            episode_record = {
+                "episode": self._episode_index,
+                "stage": self.env.curriculum_stage,
+                "reward": self._current_reward,
+                "length": self._current_length,
+                "smoothness_sum": self._current_smoothness,
+                "effort_sum": self._current_effort,
+                "joint_sum": self._current_joint,
+                "stability_sum": self._current_stability,
+                "success": success,
+            }
+            self._episodes_data.append(episode_record)
+            # Reset accumulators for next episode
+            self._episode_index += 1
+            self._current_reward = 0.0
+            self._current_length = 0
+            self._current_smoothness = 0.0
+            self._current_effort = 0.0
+            self._current_joint = 0.0
+            self._current_stability = 0.0
+        return True
+
+    def _on_training_end(self) -> None:
+        # Write logs to CSV when a path is provided
+        if self.log_path and self._episodes_data:
+            import csv
+            from pathlib import Path
+            # Ensure directory exists
+            log_file = Path(self.log_path)
+            log_file.parent.mkdir(parents=True, exist_ok=True)
+            with log_file.open("w", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(f, fieldnames=list(self._episodes_data[0].keys()))
+                writer.writeheader()
+                writer.writerows(self._episodes_data)
+        # Expose collected data for users (e.g., after training)
+        self.training_log = self._episodes_data
 
 
 class WengGaitTrainer:
@@ -95,6 +207,7 @@ class WengGaitTrainer:
         algorithm: str = "PPO",
         hyperparams: Optional[Dict[str, Any]] = None,
         seed: Optional[int] = None,
+        log_path: Optional[str] = None,
     ) -> None:
         """Initialise the trainer.
 
@@ -123,6 +236,8 @@ class WengGaitTrainer:
             self.env.reset(seed=seed)
         self.algorithm: str = alg
         self.hyperparams: Dict[str, Any] = hyperparams or _default_hyperparams(alg)
+        # Path where training logs should be stored; None disables file output
+        self.log_path: Optional[str] = log_path
         # Create SB3 model
         if alg == "PPO":
             self.model = PPO(
@@ -142,11 +257,17 @@ class WengGaitTrainer:
                 **self.hyperparams,
             )
 
+        # Placeholder for logging callback; will be initialised in train()
+        self.logging_callback: Optional[LoggingCallback] = None
+
     def train(self) -> None:
         """Train the policy for the configured number of timesteps."""
-        # Use penalty ramp callback to gradually increase penalties
-        callback = PenaltyRampCallback(self.env)
-        self.model.learn(total_timesteps=self.total_timesteps, callback=callback)
+        # Create callbacks: penalty ramp (with curriculum progression) and logging
+        ramp_callback = PenaltyRampCallback(self.env)
+        # Instantiate logging callback with given log path
+        self.logging_callback = LoggingCallback(self.env, log_path=self.log_path)
+        callback_list = CallbackList([ramp_callback, self.logging_callback])
+        self.model.learn(total_timesteps=self.total_timesteps, callback=callback_list)
 
     def evaluate(self, num_episodes: int = 20) -> TrainingResult:
         """Evaluate the trained policy across several episodes and compute metrics.
@@ -226,3 +347,63 @@ class WengGaitTrainer:
             safety_violations=safety_violations,
             model=self.model,
         )
+
+
+# ----------------------------------------------------------------------
+# Plotting utilities
+def plot_training_progress(log_file: str, metrics: Optional[List[str]] = None, save_dir: Optional[str] = None) -> None:
+    """Plot training metrics from a CSV log file.
+
+    This helper reads a CSV file produced by :class:`LoggingCallback` and
+    generates a simple line plot for each requested metric.  Each plot
+    displays the metric value versus episode index.  When ``save_dir`` is
+    provided, figures are saved as PNG files with the metric name in
+    the filename; otherwise figures are shown interactively.
+
+    Parameters
+    ----------
+    log_file: str
+        Path to the CSV file containing logged training metrics.
+    metrics: list[str], optional
+        Names of the metrics to plot.  By default the function plots
+        ``reward``, ``smoothness_sum``, ``effort_sum``, ``joint_sum`` and
+        ``stability_sum``.  Metric names must match the column names in
+        ``log_file``.
+    save_dir: str, optional
+        Directory in which to save the generated figures.  When omitted
+        or ``None``, the figures are displayed interactively.
+    """
+    import csv
+    import matplotlib.pyplot as plt  # type: ignore
+    from pathlib import Path
+
+    # Read the CSV log into a list of dicts
+    with open(log_file, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        logs = list(reader)
+    if not logs:
+        raise ValueError(f"No data found in log file {log_file}")
+
+    # Default metrics to plot
+    if metrics is None:
+        metrics = ["reward", "smoothness_sum", "effort_sum", "joint_sum", "stability_sum"]
+    # Convert numeric fields to float lists
+    for metric in metrics:
+        if metric not in logs[0]:
+            raise ValueError(f"Metric '{metric}' not found in log file")
+        values = [float(row[metric]) for row in logs]
+        episodes = list(range(len(values)))
+        plt.figure()
+        plt.plot(episodes, values)
+        plt.xlabel("Episode")
+        plt.ylabel(metric.replace("_", " "))
+        plt.title(f"Training {metric.replace('_', ' ')}")
+        plt.grid(True)
+        if save_dir:
+            out_dir = Path(save_dir)
+            out_dir.mkdir(parents=True, exist_ok=True)
+            out_path = out_dir / f"{metric}.png"
+            plt.savefig(out_path)
+        else:
+            plt.show()
+
