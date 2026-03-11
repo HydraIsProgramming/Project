@@ -11,6 +11,7 @@ src/rl_armMotion/data/__init__.py
 src/rl_armMotion/environments/__init__.py
 src/rl_armMotion/environments/simple_arm.py
 src/rl_armMotion/environments/task_env.py
+src/rl_armMotion/environments/weng_gait_env.py
 src/rl_armMotion/gui/__init__.py
 src/rl_armMotion/gui/app.py
 src/rl_armMotion/gui/training_gui.py
@@ -35,7 +36,9 @@ src/rl_armMotion/three_d/training/trainer_3d.py
 src/rl_armMotion/three_d/utils/__init__.py
 src/rl_armMotion/three_d/utils/kinematics_3d.py
 src/rl_armMotion/training/__init__.py
+src/rl_armMotion/training/compare_algorithms.py
 src/rl_armMotion/training/ppo_trainer_wrapper.py
+src/rl_armMotion/training/weng_gait_trainer.py
 src/rl_armMotion/two_d/__init__.py
 src/rl_armMotion/two_d/config/__init__.py
 src/rl_armMotion/two_d/config/arm_config.py
