@@ -152,6 +152,29 @@ class ArmTaskEnv(gym.Env):
         self.hold_counter = 0
         self.last_gradient = 0.0
 
+        # --- Physics constraints ---
+        # Gravity (m/s²)
+        self.gravity = 9.81
+
+        # Precomputed physical arrays (float64 for torque precision)
+        self._link_lengths = np.asarray(self.config.link_lengths, dtype=np.float64)
+        self._masses = np.asarray(self.config.masses, dtype=np.float64)
+
+        # Joint acceleration limit: reaches max speed in ~0.25 s (25 steps at dt=0.01)
+        self.max_joint_accel: float = 8.0  # rad/s²
+        self.max_delta_vel: float = self.max_joint_accel * self.dt  # rad/s per step
+
+        # Reward coefficients (kept small so physics penalties don't dominate)
+        # gravity_penalty_coeff: ~0.1 Nm penalty per step at full horizontal extension
+        self.gravity_penalty_coeff: float = 0.003
+        # accel_penalty_coeff: max ~0.1 per step at maximum acceleration on both joints
+        self.accel_penalty_coeff: float = 0.05
+
+        # Episode energy accumulator (Joules) — tracked for info, no hard cutoff
+        self.episode_energy: float = 0.0
+        # Previous velocities for acceleration computation
+        self.prev_velocities: np.ndarray = np.zeros(self.num_dof, dtype=np.float32)
+
     @staticmethod
     def _angle_normalize(angle: float) -> float:
         """Wrap angle to [-pi, pi]."""
@@ -198,6 +221,41 @@ class ArmTaskEnv(gym.Env):
 
         self.goal_height = float(self.goal_position[1])
 
+    def _compute_gravity_torques(self, angles: np.ndarray) -> np.ndarray:
+        """Compute gravity torques (Nm) at each joint for a planar 2D serial arm.
+
+        Uses standard recursive formula for a uniform-rod serial chain:
+            τ_i = -g * Σ_{k=i}^{n-1}  m_k * (x_com_k − x_joint_i)
+
+        Sign convention: negative torque = gravity creates CW rotation (arm falls).
+
+        Args:
+            angles: Joint angles in radians, shape (num_dof,).
+
+        Returns:
+            torques: Gravity torque at each joint, shape (num_dof,), in Nm.
+        """
+        l = self._link_lengths          # link lengths [l0, l1]
+        m = self._masses                # link masses  [m0, m1]
+        n = self.num_dof
+
+        cum_angles = np.cumsum(np.asarray(angles, dtype=np.float64))  # [θ1, θ1+θ2]
+        cos_a = np.cos(cum_angles)
+
+        # x-coordinate of each joint (shoulder at origin)
+        joint_x = np.zeros(n + 1)
+        joint_x[1:] = np.cumsum(l * cos_a)
+
+        # x-coordinate of each link's center of mass (mid-point of uniform rod)
+        com_x = joint_x[:n] + 0.5 * l * cos_a
+
+        # τ_i = -g * Σ_{k≥i} m_k * (com_x_k − joint_x_i)
+        torques = np.empty(n)
+        for i in range(n):
+            torques[i] = -self.gravity * float(np.dot(m[i:], com_x[i:] - joint_x[i]))
+
+        return torques
+
     def reset(
         self, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
     ) -> Tuple[np.ndarray, Dict]:
@@ -213,6 +271,8 @@ class ArmTaskEnv(gym.Env):
         self.best_total_error = float("inf")
         self.hold_counter = 0
         self.last_gradient = 0.0
+        self.prev_velocities = np.zeros(self.num_dof, dtype=np.float32)
+        self.episode_energy = 0.0
 
         self.controller.angles = angles.copy()
 
@@ -313,14 +373,21 @@ class ArmTaskEnv(gym.Env):
         # Convert normalized action to physical joint velocity command.
         joint_velocity_cmd = action * np.asarray(self.config.velocity_limits, dtype=np.float32)
 
-        new_angles = angles + joint_velocity_cmd * self.dt
+        # --- Joint acceleration limit ---
+        # Velocity can change by at most max_delta_vel per step (C: jerk constraint).
+        delta_vel = joint_velocity_cmd - self.prev_velocities
+        delta_vel = np.clip(delta_vel, -self.max_delta_vel, self.max_delta_vel)
+        actual_velocities = (self.prev_velocities + delta_vel).astype(np.float32)
+
+        new_angles = angles + actual_velocities * self.dt
         new_angles = np.clip(
             new_angles,
             self.config.joint_limits_min,
             self.config.joint_limits_max,
         ).astype(np.float32)
 
-        new_velocities = joint_velocity_cmd  # already float32 (float32 * float32)
+        new_velocities = actual_velocities
+        self.prev_velocities = new_velocities
         self.state = np.concatenate([new_angles, new_velocities])  # preserves float32
         self.controller.angles = new_angles
 
@@ -352,6 +419,19 @@ class ArmTaskEnv(gym.Env):
         progress = self.previous_total_error - total_error
         self.previous_total_error = total_error
 
+        # --- A: Gravity torques ---
+        gravity_torques = self._compute_gravity_torques(new_angles)
+        gravity_load = float(np.sum(np.abs(gravity_torques)))  # total static holding effort (Nm)
+
+        # --- J: Energy budget ---
+        # Mechanical power against gravity this step: |τ_i| × |ω_i| × dt (Joules)
+        step_energy = float(np.dot(np.abs(gravity_torques), np.abs(new_velocities))) * self.dt
+        self.episode_energy += step_energy
+
+        # --- C: Acceleration effort ---
+        # Normalized per-joint: 1.0 = maximum allowed acceleration applied this step
+        accel_effort = float(np.sum(np.abs(delta_vel) / max(self.max_delta_vel, 1e-8))) / self.num_dof
+
         # Reward shaping for fast learning and stable hold behavior.
         reward = (
             -2.0 * goal_distance
@@ -359,6 +439,10 @@ class ArmTaskEnv(gym.Env):
             -0.15 * velocity_norm
             -0.20 * gradient_norm
             -0.01 * float(np.linalg.norm(action))
+            # A: gravity load penalty — discourages high-effort configurations
+            -self.gravity_penalty_coeff * gravity_load
+            # J: energy cost — discourages unnecessary motion against gravity
+            -self.accel_penalty_coeff * accel_effort
         )
 
         if progress > 0:
@@ -398,6 +482,12 @@ class ArmTaskEnv(gym.Env):
             "goal_reached": bool(terminated),
             "step": self.step_count,
             "best_distance": float(self.best_distance),
+            # Physics metrics
+            "gravity_torques": gravity_torques.tolist(),
+            "gravity_load": float(gravity_load),
+            "accel_effort": float(accel_effort),
+            "step_energy": float(step_energy),
+            "episode_energy": float(self.episode_energy),
         }
 
         obs = self._get_observation(
