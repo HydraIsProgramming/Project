@@ -1,1 +1,4 @@
 /venv
+/weng_gait_env.py
+/weng_gait_trainer.py
+/compare_algorithms.py
