@@ -175,6 +175,12 @@ class ArmTaskEnv(gym.Env):
         # Previous velocities for acceleration computation
         self.prev_velocities: np.ndarray = np.zeros(self.num_dof, dtype=np.float32)
 
+        # Jerk penalty: penalises abrupt changes in acceleration (smoothness)
+        # jerk = Δacceleration / dt = Δ(delta_vel) / dt²
+        # coefficient kept small — jerk is high during start/stop which is normal
+        self.jerk_penalty_coeff: float = 0.02
+        self.prev_delta_vel: np.ndarray = np.zeros(self.num_dof, dtype=np.float32)
+
     @staticmethod
     def _angle_normalize(angle: float) -> float:
         """Wrap angle to [-pi, pi]."""
@@ -272,6 +278,7 @@ class ArmTaskEnv(gym.Env):
         self.hold_counter = 0
         self.last_gradient = 0.0
         self.prev_velocities = np.zeros(self.num_dof, dtype=np.float32)
+        self.prev_delta_vel = np.zeros(self.num_dof, dtype=np.float32)
         self.episode_energy = 0.0
 
         self.controller.angles = angles.copy()
@@ -432,6 +439,14 @@ class ArmTaskEnv(gym.Env):
         # Normalized per-joint: 1.0 = maximum allowed acceleration applied this step
         accel_effort = float(np.sum(np.abs(delta_vel) / max(self.max_delta_vel, 1e-8))) / self.num_dof
 
+        # --- K: Jerk penalty ---
+        # Jerk = change in acceleration per unit time = Δ(delta_vel) / dt
+        # High jerk = jerky, abrupt motion; low jerk = smooth arc-like trajectory
+        jerk = (delta_vel - self.prev_delta_vel) / max(self.dt, 1e-8)
+        jerk_norm = float(np.mean(np.abs(jerk)) / max(self.max_joint_accel / self.dt, 1e-8))
+        jerk_norm = float(np.clip(jerk_norm, 0.0, 1.0))
+        self.prev_delta_vel = delta_vel.copy()
+
         # Reward shaping for fast learning and stable hold behavior.
         reward = (
             -2.0 * goal_distance
@@ -443,6 +458,8 @@ class ArmTaskEnv(gym.Env):
             -self.gravity_penalty_coeff * gravity_load
             # J: energy cost — discourages unnecessary motion against gravity
             -self.accel_penalty_coeff * accel_effort
+            # K: jerk penalty — encourages smooth arc-like trajectories
+            -self.jerk_penalty_coeff * jerk_norm
         )
 
         if progress > 0:
@@ -486,6 +503,7 @@ class ArmTaskEnv(gym.Env):
             "gravity_torques": gravity_torques.tolist(),
             "gravity_load": float(gravity_load),
             "accel_effort": float(accel_effort),
+            "jerk_norm": float(jerk_norm),
             "step_energy": float(step_energy),
             "episode_energy": float(self.episode_energy),
         }
