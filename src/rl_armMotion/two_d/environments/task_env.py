@@ -218,14 +218,14 @@ class ArmTaskEnv(gym.Env):
 
         end_effector = self._get_end_effector_position(angles)
         signed_height_error = self._compute_signed_goal_error(end_effector)
-        _, abs_orientation_error = self._compute_orientation_error(angles)
+        signed_orientation_error, abs_orientation_error = self._compute_orientation_error(angles)
         self.previous_total_error = 2.0 * abs(signed_height_error) + abs_orientation_error
 
         obs = self._get_observation(
             angles=angles,
             velocities=velocities,
             signed_height_error=signed_height_error,
-            signed_orientation_error=self._compute_orientation_error(angles)[0],
+            signed_orientation_error=signed_orientation_error,
             gradient_norm=0.0,
             in_goal_region=False,
         )
@@ -320,8 +320,8 @@ class ArmTaskEnv(gym.Env):
             self.config.joint_limits_max,
         ).astype(np.float32)
 
-        new_velocities = joint_velocity_cmd.astype(np.float32)
-        self.state = np.concatenate([new_angles, new_velocities]).astype(np.float32)
+        new_velocities = joint_velocity_cmd  # already float32 (float32 * float32)
+        self.state = np.concatenate([new_angles, new_velocities])  # preserves float32
         self.controller.angles = new_angles
 
         end_effector_pos = self._get_end_effector_position(new_angles)
@@ -443,9 +443,8 @@ class ArmTaskEnv(gym.Env):
         signed_height_error = self._compute_signed_goal_error(end_effector)
         signed_orientation_error, orientation_error_abs = self._compute_orientation_error(angles)
         velocity_norm = float(np.linalg.norm(velocities))
-        in_goal_region = self._is_goal_reached(
-            self._compute_goal_distance(end_effector), orientation_error_abs, velocity_norm
-        )
+        goal_distance = self._compute_goal_distance(end_effector)
+        in_goal_region = self._is_goal_reached(goal_distance, orientation_error_abs, velocity_norm)
 
         return {
             "joint_angles": angles.copy(),
@@ -457,7 +456,7 @@ class ArmTaskEnv(gym.Env):
             "goal_position": self.goal_position.copy(),
             "goal_direction": self.goal_direction,
             "target_orientation": self.target_orientation,
-            "distance_to_goal": float(self._compute_goal_distance(end_effector)),
+            "distance_to_goal": float(goal_distance),
             "height_error": float(signed_height_error),
             "orientation_error": float(signed_orientation_error),
             "orientation_error_abs": float(orientation_error_abs),

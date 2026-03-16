@@ -167,6 +167,14 @@ class ArmTaskEnv3D(gym.Env):
         orientation_error = float(np.arccos(alignment))
         return orientation_error, alignment
 
+    def _compute_orientation_from_points(self, points: np.ndarray) -> Tuple[float, float]:
+        """Compute orientation error from pre-computed FK points (avoids a redundant FK call)."""
+        forearm_vec = np.asarray(points[-1] - points[-2], dtype=float)
+        norm = float(np.linalg.norm(forearm_vec))
+        unit = forearm_vec / norm if norm >= 1e-8 else np.array([0.0, -1.0, 0.0], dtype=float)
+        alignment = float(np.clip(np.dot(unit, np.asarray(self.goal_axis, dtype=float)), -1.0, 1.0))
+        return float(np.arccos(alignment)), alignment
+
     def _is_goal_reached(
         self,
         goal_distance: float,
@@ -277,11 +285,13 @@ class ArmTaskEnv3D(gym.Env):
 
         self.controller.angles = new_angles.copy()
         self.controller.velocities = new_velocities.copy()
-        self.controller.positions = self._get_points(new_angles)
 
-        ee = self._get_end_effector_position(new_angles)
+        # Single FK call — reused for controller, end-effector, and orientation.
+        points = self._get_points(new_angles)
+        self.controller.positions = points
+        ee = np.asarray(points[-1], dtype=np.float32)
         signed_axis_error, lateral_error, goal_distance = self._compute_goal_errors(ee)
-        orientation_error, orientation_alignment = self._compute_orientation_error(new_angles)
+        orientation_error, orientation_alignment = self._compute_orientation_from_points(points)
         velocity_norm = float(np.linalg.norm(new_velocities))
 
         in_goal_region = self._is_goal_reached(goal_distance, orientation_error, velocity_norm)
@@ -384,9 +394,11 @@ class ArmTaskEnv3D(gym.Env):
 
         angles = self.state[: self.num_dof]
         velocities = self.state[self.num_dof :]
-        ee = self._get_end_effector_position(angles)
+        # Single FK call reused for end-effector and orientation.
+        points = self._get_points(angles)
+        ee = np.asarray(points[-1], dtype=np.float32)
         signed_axis_error, lateral_error, goal_distance = self._compute_goal_errors(ee)
-        orientation_error, orientation_alignment = self._compute_orientation_error(angles)
+        orientation_error, orientation_alignment = self._compute_orientation_from_points(points)
         velocity_norm = float(np.linalg.norm(velocities))
         in_goal_region = self._is_goal_reached(goal_distance, orientation_error, velocity_norm)
 
