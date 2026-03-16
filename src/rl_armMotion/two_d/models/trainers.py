@@ -181,18 +181,19 @@ class RLTrainer(BaseTrainer):
         defaults = {
             "PPO": {
                 "learning_rate": linear_decay(3e-4, 3e-5),
-                "gamma": 0.995,
-                "gae_lambda": 0.98,
-                "ent_coef": 0.005,
-                "n_steps": 4096,
-                "batch_size": 256,
-                "n_epochs": 10,
+                "gamma": 0.99,       # was 0.995; better for ~800-step episodes
+                "gae_lambda": 0.95,  # was 0.98; reduces variance, faster convergence
+                "ent_coef": 0.01,    # was 0.005; more exploration early in training
+                "n_steps": 1024,     # was 4096; 4x more frequent gradient updates
+                "batch_size": 128,   # was 256; scaled down to match shorter rollouts
+                "n_epochs": 8,       # was 10; balanced with smaller batch size
                 "clip_range": 0.2,
             },
             "SAC": {
                 "learning_rate": 3e-4,
-                "buffer_size": 1_000_000,
+                "buffer_size": 200_000,   # was 1_000_000; sufficient for this task, less memory
                 "batch_size": 256,
+                "learning_starts": 1000,  # begin learning after warm-up steps
             },
             "A3C": {
                 "learning_rate": 7e-4,
@@ -204,7 +205,7 @@ class RLTrainer(BaseTrainer):
             },
             "DQN": {
                 "learning_rate": 1e-4,
-                "buffer_size": 1_000_000,
+                "buffer_size": 200_000,  # was 1_000_000; sufficient for this task
                 "batch_size": 32,
             },
         }
