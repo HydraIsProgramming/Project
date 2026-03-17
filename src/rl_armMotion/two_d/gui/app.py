@@ -1080,7 +1080,22 @@ class ArmControllerGUI:
 
         self._set_controller_state_from_arrays(angles, velocities)
 
-        if terminated or truncated:
+        if terminated:
+            # Goal reached and held — stop simulation, display success
+            goal_dir = info.get("goal_direction", "")
+            steps = self.sim_step_count
+            ep_reward = self.sim_episode_reward
+            self._set_model_details_text(
+                f"*** GOAL REACHED ***\n"
+                f"Direction: {goal_dir}  Steps: {steps}\n"
+                f"Episode reward: {ep_reward:.1f}\n"
+                f"Status: Held position successfully"
+            )
+            self._stop_simulation()
+            print(f"✓ Goal reached and held after {steps} steps! Simulation stopped.")
+
+        elif truncated:
+            # Max steps without success — reset and try again
             self.sim_episode_count += 1
             self.sim_episode_reward = 0.0
             self.sim_obs, _ = self.sim_env.reset()

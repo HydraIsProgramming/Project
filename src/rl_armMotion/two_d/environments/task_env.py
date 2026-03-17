@@ -136,10 +136,10 @@ class ArmTaskEnv(gym.Env):
         self._configure_goal(self.goal_direction)
 
         # Tolerances and hold constraints
-        self.height_tolerance = 0.10                       # 10 cm — reachable by 100k-step model
-        self.orientation_tolerance = float(np.deg2rad(10.0))  # 10° — practical holding window
-        self.hold_velocity_tolerance = 0.30                # allow slight residual motion
-        self.hold_steps_required = 20                      # ~0.2 s hold — achievable in one episode
+        self.height_tolerance = 0.06                           # 6 cm — precise goal region
+        self.orientation_tolerance = float(np.deg2rad(8.0))   # 8° — precise orientation hold
+        self.hold_velocity_tolerance = 0.20                    # must be nearly still to count
+        self.hold_steps_required = 30                          # 0.3 s stable hold to terminate
         self.gradient_scale = 5.0
 
         # Compatibility alias with previous code/tests
@@ -352,31 +352,36 @@ class ArmTaskEnv(gym.Env):
         progress = self.previous_total_error - total_error
         self.previous_total_error = total_error
 
-        # Reward shaping for fast learning and stable hold behavior.
-        reward = (
-            -2.0 * goal_distance
-            -1.0 * orientation_error
-            -0.15 * velocity_norm
-            -0.20 * gradient_norm
-            -0.01 * float(np.linalg.norm(action))
-        )
+        # --- Reward shaping for precision and smooth goal-reaching ---
 
+        # 1. Distance and orientation penalty (primary objectives)
+        reward = -2.5 * goal_distance - 1.2 * orientation_error
+
+        # 2. Exponential precision bonus — creates a sharp pull toward exact goal position
+        #    Peaks at 6.0 at distance=0, decays to ~0.1 at 30 cm away
+        reward += 6.0 * float(np.exp(-10.0 * goal_distance))
+
+        # 3. Orientation precision bonus — extra reward for correct end-effector alignment
+        reward += 2.5 * float(np.exp(-6.0 * orientation_error))
+
+        # 4. Motion penalties — keep motion smooth; reduced to not block approach
+        reward -= 0.10 * velocity_norm
+        reward -= 0.15 * gradient_norm
+        reward -= 0.005 * float(np.linalg.norm(action))
+
+        # 5. Progress bonus — always reward moving closer to goal
         if progress > 0:
-            reward += 1.5 * progress
+            reward += 2.0 * progress
 
-        # Proximity bonus: ramps up as arm enters 3x tolerance radius, peaks inside goal region.
-        proximity_threshold = 3.0 * self.height_tolerance
-        if goal_distance < proximity_threshold:
-            proximity_bonus = 4.0 * (1.0 - goal_distance / proximity_threshold)
-            reward += proximity_bonus
-
+        # 6. Goal region: strong flat bonus + growing hold counter reward
         if in_goal_region:
-            reward += 10.0                              # strong constant pull to stay in goal
-            reward += 2.0 * float(self.hold_counter)   # growing bonus for consecutive hold steps
+            reward += 15.0                             # strong flat pull to remain in goal
+            reward += 3.0 * float(self.hold_counter)  # growing reward for consecutive hold steps
 
+        # 7. Termination: large bonus for completing the hold
         terminated = self.hold_counter >= self.hold_steps_required
         if terminated:
-            reward += 150.0
+            reward += 200.0
 
         truncated = self.step_count >= self.max_episode_steps
 
