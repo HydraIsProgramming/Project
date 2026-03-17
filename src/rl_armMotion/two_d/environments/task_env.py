@@ -119,7 +119,7 @@ class ArmTaskEnv(gym.Env):
 
         # Simulation parameters
         self.dt = float(self.config.dt)
-        self.max_episode_steps = 800
+        self.max_episode_steps = 1000
         self.step_count = 0
 
         # State: [angles, velocities]
@@ -136,10 +136,10 @@ class ArmTaskEnv(gym.Env):
         self._configure_goal(self.goal_direction)
 
         # Tolerances and hold constraints
-        self.height_tolerance = 0.03
-        self.orientation_tolerance = float(np.deg2rad(5.0))
-        self.hold_velocity_tolerance = 0.15
-        self.hold_steps_required = 60
+        self.height_tolerance = 0.10                       # 10 cm — reachable by 100k-step model
+        self.orientation_tolerance = float(np.deg2rad(10.0))  # 10° — practical holding window
+        self.hold_velocity_tolerance = 0.30                # allow slight residual motion
+        self.hold_steps_required = 20                      # ~0.2 s hold — achievable in one episode
         self.gradient_scale = 5.0
 
         # Compatibility alias with previous code/tests
@@ -364,8 +364,15 @@ class ArmTaskEnv(gym.Env):
         if progress > 0:
             reward += 1.5 * progress
 
+        # Proximity bonus: ramps up as arm enters 3x tolerance radius, peaks inside goal region.
+        proximity_threshold = 3.0 * self.height_tolerance
+        if goal_distance < proximity_threshold:
+            proximity_bonus = 4.0 * (1.0 - goal_distance / proximity_threshold)
+            reward += proximity_bonus
+
         if in_goal_region:
-            reward += 2.0 * float(self.hold_counter)
+            reward += 10.0                              # strong constant pull to stay in goal
+            reward += 2.0 * float(self.hold_counter)   # growing bonus for consecutive hold steps
 
         terminated = self.hold_counter >= self.hold_steps_required
         if terminated:

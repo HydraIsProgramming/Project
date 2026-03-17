@@ -61,6 +61,7 @@ class ArmControllerGUI:
         self.sim_step_count = 0
         self.sim_episode_count = 0
         self.sim_episode_reward = 0.0
+        self.sim_steps_per_frame = 5  # default: real-time (dt=0.01 × 5 steps = 0.05s/frame)
         self.sim_toggle_button = None
         self.sim_model_label = None
         self.sim_model_details_text = None
@@ -555,6 +556,28 @@ class ArmControllerGUI:
             anchor="w",
         )
         self.sim_model_label.pack(side="left", fill="x", expand=True, padx=(6, 0))
+
+        # Simulation speed control
+        speed_row = ttk.Frame(frame)
+        speed_row.pack(fill="x", pady=(2, 4))
+        ttk.Label(speed_row, text="Sim Speed:", font=("Courier", 8)).pack(side="left", padx=(0, 4))
+        self._sim_speed_var = tk.IntVar(value=5)
+        speed_slider = ttk.Scale(
+            speed_row, from_=1, to=20, orient="horizontal",
+            variable=self._sim_speed_var, length=160,
+        )
+        speed_slider.pack(side="left")
+        self._sim_speed_label = ttk.Label(speed_row, text="1.0x", font=("Courier", 8), width=6)
+        self._sim_speed_label.pack(side="left", padx=(4, 0))
+
+        def _on_speed_change(event=None):
+            steps = int(self._sim_speed_var.get())
+            self.sim_steps_per_frame = steps
+            multiplier = steps / 5.0  # 5 steps/frame = 1x real-time
+            self._sim_speed_label.config(text=f"{multiplier:.1f}x")
+
+        speed_slider.bind("<Motion>", _on_speed_change)
+        speed_slider.bind("<ButtonRelease-1>", _on_speed_change)
 
         details_frame = ttk.LabelFrame(frame, text="Model Details", padding=4)
         details_frame.pack(fill="x", pady=(0, 6))
@@ -1252,7 +1275,10 @@ Points: {len(self.trajectory_points)}
 
             # Handle playback
             if self.simulation_active:
-                self._simulation_step()
+                for _ in range(max(1, self.sim_steps_per_frame)):
+                    self._simulation_step()
+                    if not self.simulation_active:
+                        break
             elif self.playing_back and self.playback_frames:
                 if self.playback_index < len(self.playback_frames):
                     frame_state = self.playback_frames[self.playback_index]
