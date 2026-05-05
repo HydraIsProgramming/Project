@@ -11,6 +11,7 @@ import numpy as np
 from rl_armMotion.two_d.environments.task_env import ArmTaskEnv
 from rl_armMotion.two_d.models.callbacks import GUICallback
 from rl_armMotion.two_d.models.trainers import RLTrainer
+from rl_armMotion.two_d.training.curriculum_callback import AdaptiveCurriculumCallback
 
 
 class RLTrainerWithMetrics:
@@ -29,6 +30,8 @@ class RLTrainerWithMetrics:
         metrics_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
         should_stop: Optional[Callable[[], bool]] = None,
         check_freq: int = 100,
+        use_curriculum: Optional[bool] = None,
+        curriculum_kwargs: Optional[Dict[str, Any]] = None,
     ):
         """
         Initialize trainer with metrics collection.
@@ -43,6 +46,14 @@ class RLTrainerWithMetrics:
             metrics_callback: Optional callback for metrics updates
             should_stop: Optional external stop callback
             check_freq: Steps between periodic metrics updates
+            use_curriculum: If True, attaches an AdaptiveCurriculumCallback
+                that shrinks the goal tolerance as the success rate rises,
+                following Fischer et al. (2021), Sci. Rep. 11:14445. If None
+                (the default) the curriculum is enabled automatically when
+                the algorithm is SAC and disabled otherwise. Set to False
+                to disable explicitly.
+            curriculum_kwargs: Optional override of AdaptiveCurriculumCallback
+                constructor parameters (e.g., initial_tolerance, decay_factor).
         """
         if env is None:
             env = ArmTaskEnv()
@@ -104,6 +115,17 @@ class RLTrainerWithMetrics:
         self.training_active = False
         self.stop_requested = False
 
+        # Curriculum configuration. If unspecified, default-on for SAC because
+        # the adaptive curriculum is the methodology Fischer et al. (2021)
+        # validated for SAC; PPO/A2C keep the static tolerance unless the
+        # caller explicitly opts in.
+        if use_curriculum is None:
+            self.use_curriculum = self.algorithm == "SAC"
+        else:
+            self.use_curriculum = bool(use_curriculum)
+        self.curriculum_kwargs = dict(curriculum_kwargs) if curriculum_kwargs else {}
+        self.curriculum_callback: Optional[AdaptiveCurriculumCallback] = None
+
         # RLock avoids deadlocks for nested metric reads.
         self.metrics_lock = threading.RLock()
 
@@ -136,10 +158,20 @@ class RLTrainerWithMetrics:
             check_freq=self.check_freq,
         )
 
+        # Build the callback list. The curriculum callback (if enabled) runs
+        # alongside the GUI callback. SB3 accepts a list of BaseCallback
+        # instances directly and wraps them in a CallbackList internally.
+        callbacks: List[Any] = [gui_callback]
+        if self.use_curriculum:
+            self.curriculum_callback = AdaptiveCurriculumCallback(
+                **self.curriculum_kwargs
+            )
+            callbacks.append(self.curriculum_callback)
+
         try:
             result = self.trainer.train(
                 total_timesteps=self.total_timesteps,
-                callback=gui_callback,
+                callback=callbacks if len(callbacks) > 1 else gui_callback,
             )
 
             final_metrics = self._get_training_summary()
@@ -174,6 +206,13 @@ class RLTrainerWithMetrics:
             if self.start_time is not None:
                 elapsed_time = (datetime.now() - self.start_time).total_seconds()
 
+            curriculum_info: Dict[str, Any]
+            if self.curriculum_callback is not None:
+                curriculum_info = self.curriculum_callback.get_progress()
+                curriculum_info["enabled"] = True
+            else:
+                curriculum_info = {"enabled": False}
+
             return {
                 "algorithm": self.algorithm,
                 "timesteps": self.timesteps_trained,
@@ -205,6 +244,7 @@ class RLTrainerWithMetrics:
                 "hold_progress": float(self.latest_hold_progress),
                 "in_goal_region": bool(self.latest_in_goal_region),
                 "gradient_norm": float(self.latest_gradient_norm),
+                "curriculum": curriculum_info,
             }
 
     def _push_periodic_metrics(self) -> None:

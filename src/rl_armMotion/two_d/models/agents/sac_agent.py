@@ -25,10 +25,23 @@ class SACAgent:
     # SAC is preferred over PPO for continuous-control goal-reaching tasks because
     # of its sample efficiency and entropy-regularised exploration, both of which
     # Fischer found essential. Values match the paper's reported configuration.
+    #
+    # Motor babbling. Fischer et al. (2021) initialised their policy by running
+    # a "motor babbling" phase in which the agent issues uniformly random
+    # commands and stores the resulting transitions in the SAC replay buffer
+    # before any policy updates begin. This populates the buffer with diverse
+    # state-action coverage so the off-policy critic has something to learn
+    # from on its first gradient steps. In Stable-Baselines3 the equivalent is
+    # the `learning_starts` hyperparameter: the SAC actor acts uniformly at
+    # random for this many environment steps and only stores transitions, with
+    # gradient updates suppressed until the threshold is crossed. We default to
+    # 5000 steps, which is large enough to seed the buffer for typical training
+    # runs of 100k–500k timesteps without dominating short demo runs.
     DEFAULT_HYPERPARAMS = {
         "learning_rate": 3e-4,        # Fischer et al. (2021), Methods §"Training"
         "buffer_size": 1_000_000,     # Fischer et al. (2021), replay buffer size
         "batch_size": 256,            # Fischer et al. (2021), minibatch size
+        "learning_starts": 5_000,     # Fischer et al. (2021), motor babbling phase
         "tau": 0.005,                 # Standard SAC target-network smoothing
         "gamma": 0.99,                # Standard SAC discount factor
         "train_freq": 1,

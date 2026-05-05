@@ -1,0 +1,253 @@
+"""Adaptive goal-tolerance curriculum following Fischer et al. (2021).
+
+This module implements the adaptive curriculum scheme described in Fischer,
+Hoinville, Eickhoff, and Lilienthal (2021), "Reinforcement learning control
+of a biomechanical model of the upper extremity", Scientific Reports 11:14445,
+https://doi.org/10.1038/s41598-021-93760-1.
+
+Fischer et al. trained their seven-degree-of-freedom MuJoCo arm with SAC and
+found that learning a precise goal-reaching policy from the outset was
+intractable: the reward landscape is too sparse when the success region is
+small. Their solution was an adaptive curriculum on the position tolerance.
+The agent begins training with a wide goal radius (~60 cm), so success is
+common and the policy receives a strong learning signal. Once the rolling
+success rate over the recent training window exceeds 80 %, the tolerance is
+shrunk multiplicatively. This continues until a precision target (~2 cm) is
+reached. The curriculum is "adaptive" because it advances on the agent's
+performance, not on a fixed timestep schedule.
+
+This callback implements that scheme as a Stable-Baselines3 BaseCallback. It
+queries the underlying environment via the `set_goal_tolerance` hook added to
+ArmTaskEnv, and detects episode terminations via `dones` and `infos` produced
+by the SB3 rollout loop. It supports both a bare environment and a vectorised
+environment with multiple parallel workers.
+"""
+
+from collections import deque
+from typing import Any, List, Optional
+
+from stable_baselines3.common.callbacks import BaseCallback
+
+
+__all__ = ["AdaptiveCurriculumCallback"]
+
+
+class AdaptiveCurriculumCallback(BaseCallback):
+    """Shrink the environment's goal tolerance as the success rate improves.
+
+    Parameters
+    ----------
+    initial_tolerance : float, default 0.60
+        Starting position tolerance in metres. The Fischer 2021 paper used
+        approximately 60 cm for the initial radius on their 7-DOF arm; the
+        value is appropriate here too because the 2-DOF arm in this project
+        has a comparable maximum reach.
+    min_tolerance : float, default 0.02
+        Minimum (final) tolerance in metres below which no further decay is
+        applied. Fischer used 2 cm as the precision target.
+    success_rate_threshold : float, default 0.80
+        Recent-window success rate (in [0, 1]) above which the tolerance is
+        shrunk. Fischer used 80 %.
+    decay_factor : float, default 0.80
+        Multiplicative shrink factor applied each time the threshold is
+        exceeded. Must lie in the open interval (0, 1). A value of 0.80
+        corresponds to a 20 % reduction per curriculum stage.
+    window_size : int, default 50
+        Number of most-recent episodes counted toward the rolling success
+        rate. Smaller windows react faster but are noisier.
+    min_episodes_before_decay : int, default 20
+        Minimum number of episodes that must elapse since the previous decay
+        before another decay is permitted. Prevents the curriculum from
+        oscillating during the first few episodes after a stage change.
+    success_key : str, default "goal_reached"
+        Key in the per-step ``info`` dict that ArmTaskEnv uses to flag a
+        terminated-by-goal episode.
+    verbose : int, default 0
+        Stable-Baselines3 verbosity. ``1`` prints a one-line announcement
+        each time a curriculum stage advances.
+
+    Attributes
+    ----------
+    current_tolerance : float
+        The position tolerance currently applied to the environment.
+    curriculum_stage : int
+        Number of times the tolerance has been shrunk since training started.
+        Stage 0 is the initial wide tolerance; each successful decay
+        increments the counter.
+    """
+
+    def __init__(
+        self,
+        initial_tolerance: float = 0.60,
+        min_tolerance: float = 0.02,
+        success_rate_threshold: float = 0.80,
+        decay_factor: float = 0.80,
+        window_size: int = 50,
+        min_episodes_before_decay: int = 20,
+        success_key: str = "goal_reached",
+        verbose: int = 0,
+    ):
+        super().__init__(verbose=verbose)
+
+        if not 0.0 < success_rate_threshold <= 1.0:
+            raise ValueError(
+                f"success_rate_threshold must lie in (0, 1], got {success_rate_threshold}"
+            )
+        if not 0.0 < decay_factor < 1.0:
+            raise ValueError(
+                f"decay_factor must lie in (0, 1), got {decay_factor}"
+            )
+        if min_tolerance <= 0.0:
+            raise ValueError(f"min_tolerance must be positive, got {min_tolerance}")
+        if initial_tolerance < min_tolerance:
+            raise ValueError(
+                f"initial_tolerance ({initial_tolerance}) must not be smaller "
+                f"than min_tolerance ({min_tolerance})"
+            )
+        if window_size <= 0:
+            raise ValueError(f"window_size must be positive, got {window_size}")
+        if min_episodes_before_decay < 0:
+            raise ValueError(
+                f"min_episodes_before_decay must be non-negative, got {min_episodes_before_decay}"
+            )
+
+        self.initial_tolerance = float(initial_tolerance)
+        self.min_tolerance = float(min_tolerance)
+        self.success_rate_threshold = float(success_rate_threshold)
+        self.decay_factor = float(decay_factor)
+        self.window_size = int(window_size)
+        self.min_episodes_before_decay = int(min_episodes_before_decay)
+        self.success_key = str(success_key)
+
+        self.current_tolerance: float = float(initial_tolerance)
+        self.curriculum_stage: int = 0
+        self._episode_results: deque = deque(maxlen=self.window_size)
+        self._episodes_since_last_decay: int = 0
+
+    # ------------------------------------------------------------------ #
+    # SB3 hooks
+    # ------------------------------------------------------------------ #
+    def _on_training_start(self) -> None:
+        """Apply the initial wide tolerance to the training environment."""
+        self._apply_tolerance(self.current_tolerance)
+        if self.verbose:
+            print(
+                f"[Curriculum] Initial goal tolerance set to "
+                f"{self.current_tolerance:.3f} m (Fischer 2021 protocol; "
+                f"target {self.min_tolerance:.3f} m, decay x{self.decay_factor}, "
+                f"threshold {self.success_rate_threshold:.0%}, window "
+                f"{self.window_size})"
+            )
+
+    def _on_step(self) -> bool:
+        """Update the rolling success rate and shrink the tolerance if appropriate.
+
+        SB3 places the per-environment ``infos`` and ``dones`` arrays into
+        ``self.locals`` on each step. We only act on completed episodes;
+        successful episodes are those for which ``info[success_key]`` is True.
+        """
+        infos: List[Any] = list(self.locals.get("infos", []))
+        dones: List[Any] = list(self.locals.get("dones", []))
+
+        # Account for either a single-env or VecEnv rollout
+        for info, done in zip(infos, dones):
+            if not bool(done):
+                continue
+            success = bool(info.get(self.success_key, False)) if isinstance(info, dict) else False
+            self._episode_results.append(1 if success else 0)
+            self._episodes_since_last_decay += 1
+
+        self._maybe_advance_curriculum()
+        return True
+
+    # ------------------------------------------------------------------ #
+    # Internal logic
+    # ------------------------------------------------------------------ #
+    def _maybe_advance_curriculum(self) -> None:
+        """Shrink tolerance if the recent success rate exceeds the threshold."""
+        if len(self._episode_results) < self.window_size:
+            return
+        if self._episodes_since_last_decay < self.min_episodes_before_decay:
+            return
+        if self.current_tolerance <= self.min_tolerance:
+            return
+
+        success_rate = sum(self._episode_results) / float(len(self._episode_results))
+        if success_rate < self.success_rate_threshold:
+            return
+
+        new_tolerance = max(
+            self.current_tolerance * self.decay_factor,
+            self.min_tolerance,
+        )
+        if new_tolerance >= self.current_tolerance:
+            return
+
+        self.current_tolerance = float(new_tolerance)
+        self.curriculum_stage += 1
+        self._episodes_since_last_decay = 0
+        self._apply_tolerance(self.current_tolerance)
+
+        if self.verbose:
+            print(
+                f"[Curriculum] Stage {self.curriculum_stage}: "
+                f"recent success rate {success_rate:.1%} >= "
+                f"{self.success_rate_threshold:.0%}; tolerance shrunk to "
+                f"{self.current_tolerance:.3f} m"
+            )
+
+    def _apply_tolerance(self, tolerance: float) -> None:
+        """Push the new tolerance to every underlying ArmTaskEnv instance.
+
+        Handles three rollout topologies:
+          1. A bare ArmTaskEnv exposing set_goal_tolerance directly.
+          2. A VecEnv (DummyVecEnv / SubprocVecEnv) supporting env_method.
+          3. A VecEnv wrapper exposing an .envs attribute (DummyVecEnv).
+        """
+        env = self.training_env
+
+        if hasattr(env, "env_method"):
+            try:
+                env.env_method("set_goal_tolerance", tolerance)
+                return
+            except Exception:
+                # fall through to direct application
+                pass
+
+        if hasattr(env, "set_goal_tolerance"):
+            env.set_goal_tolerance(tolerance)
+            return
+
+        if hasattr(env, "envs"):
+            for sub in env.envs:
+                # Walk through TimeLimit / Monitor wrappers to reach the base env
+                target = sub
+                for _ in range(8):
+                    if hasattr(target, "set_goal_tolerance"):
+                        target.set_goal_tolerance(tolerance)
+                        break
+                    if hasattr(target, "env"):
+                        target = target.env
+                    else:
+                        break
+
+    # ------------------------------------------------------------------ #
+    # Public reporting helpers (for the GUI / metrics pipeline)
+    # ------------------------------------------------------------------ #
+    def get_progress(self) -> dict:
+        """Return a snapshot of curriculum state suitable for GUI display."""
+        sr: Optional[float]
+        if self._episode_results:
+            sr = sum(self._episode_results) / float(len(self._episode_results))
+        else:
+            sr = None
+        return {
+            "current_tolerance": float(self.current_tolerance),
+            "min_tolerance": float(self.min_tolerance),
+            "initial_tolerance": float(self.initial_tolerance),
+            "curriculum_stage": int(self.curriculum_stage),
+            "recent_success_rate": sr,
+            "window_filled": len(self._episode_results),
+            "window_size": int(self.window_size),
+            "episodes_since_last_decay": int(self._episodes_since_last_decay),
+        }
