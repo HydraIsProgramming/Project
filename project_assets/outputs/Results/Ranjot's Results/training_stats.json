@@ -1,0 +1,12 @@
+{
+  "algorithm": "PPO",
+  "total_timesteps": 100352,
+  "total_episodes": 100,
+  "mean_reward": -2.918677809999981,
+  "best_reward": 2198.196589,
+  "success_rate": 0.0,
+  "hold_progress": 0.0,
+  "gradient_norm": 0.5548568907005088,
+  "training_time_sec": 122.307521,
+  "stopped_early": false
+}
