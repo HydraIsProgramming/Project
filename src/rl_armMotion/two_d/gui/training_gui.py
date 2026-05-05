@@ -30,14 +30,20 @@ class TrainingGUI:
         self,
         total_timesteps: int = 100000,
         save_dir: str = "./trained_models",
-        algorithm: str = "PPO",
+        algorithm: str = "SAC",
     ):
+        # Default algorithm is SAC, following Fischer et al. (2021)
+        # "Reinforcement learning control of a biomechanical model of the upper
+        # extremity", Scientific Reports 11:14445. SAC is preferred over PPO for
+        # this task because of its sample efficiency on continuous-control problems
+        # and its native support for entropy-regularised exploration, both of
+        # which Fischer et al. found essential for learning the goal-reaching task.
         self.total_timesteps = int(total_timesteps)
         self.save_dir = save_dir
         self.selected_algorithm = algorithm.upper()
 
         if self.selected_algorithm not in self.ALGORITHMS:
-            self.selected_algorithm = "PPO"
+            self.selected_algorithm = "SAC"
 
         # Create a probe env once to initialize arm visualization defaults.
         env = ArmTaskEnv(goal_direction="EAST")
@@ -790,7 +796,7 @@ class TrainingGUI:
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="RL Arm Motion Training GUI")
     parser.add_argument("--timesteps", type=int, default=100000, help="Total training timesteps")
-    parser.add_argument("--algorithm", type=str, default="PPO", help="Algorithm: PPO/SAC/A2C")
+    parser.add_argument("--algorithm", type=str, default="SAC", help="Algorithm: SAC (default, per Fischer 2021) / PPO / A2C")
     parser.add_argument("--save-dir", type=str, default="./trained_models", help="Default save directory")
     return parser.parse_args()
 

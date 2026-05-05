@@ -43,13 +43,39 @@ class ArmTaskEnv(gym.Env):
 
     metadata = {"render_modes": ["human"], "render_fps": 30}
 
+    # Default goal tolerance, in metres. Matches the historical hardcoded value
+    # of 10 cm. The adaptive curriculum following Fischer et al. (2021) starts
+    # near 0.60 m (their reported initial radius) and decays toward this value
+    # as the success rate improves; see ArmTaskEnv.set_goal_tolerance().
+    DEFAULT_GOAL_TOLERANCE: float = 0.10
+    DEFAULT_ORIENTATION_TOLERANCE_DEG: float = 10.0
+    DEFAULT_HOLD_VELOCITY_TOLERANCE: float = 0.30
+
     def __init__(
         self,
         render_mode: Optional[str] = None,
         shoulder_base_position: Optional[np.ndarray] = None,
         use_2dof: bool = True,
         goal_direction: str = "HEIGHT",
+        goal_tolerance: Optional[float] = None,
+        orientation_tolerance_deg: Optional[float] = None,
+        hold_velocity_tolerance: Optional[float] = None,
     ):
+        """Construct the 2-DOF goal-reaching environment.
+
+        Parameters
+        ----------
+        goal_tolerance : float, optional
+            Position tolerance in metres for the goal-reached check. Defaults to
+            ``DEFAULT_GOAL_TOLERANCE`` (0.10 m). Pass a larger value for early
+            curriculum stages and a smaller value for late stages, following
+            Fischer et al. (2021), Sci. Rep. 11:14445.
+        orientation_tolerance_deg : float, optional
+            End-effector orientation tolerance in degrees. Defaults to 10°.
+        hold_velocity_tolerance : float, optional
+            Maximum joint-velocity norm permitted while satisfying the hold
+            condition. Defaults to 0.30 rad/s.
+        """
         self.render_mode = render_mode
         self.use_2dof = use_2dof
         self.goal_direction = str(goal_direction).strip().upper()
@@ -135,10 +161,22 @@ class ArmTaskEnv(gym.Env):
         self.goal_axis = np.array([0.0, 1.0], dtype=np.float32)
         self._configure_goal(self.goal_direction)
 
-        # Tolerances and hold constraints
-        self.height_tolerance = 0.10                       # 10 cm — reachable by 100k-step model
-        self.orientation_tolerance = float(np.deg2rad(10.0))  # 10° — practical holding window
-        self.hold_velocity_tolerance = 0.30                # allow slight residual motion
+        # Tolerances and hold constraints. Defaults preserve the historical
+        # behaviour (10 cm, 10°, 0.30 rad/s); curriculum learning uses
+        # set_goal_tolerance() to vary the position tolerance during training.
+        self.height_tolerance = float(
+            goal_tolerance if goal_tolerance is not None else self.DEFAULT_GOAL_TOLERANCE
+        )
+        self.orientation_tolerance = float(np.deg2rad(
+            orientation_tolerance_deg
+            if orientation_tolerance_deg is not None
+            else self.DEFAULT_ORIENTATION_TOLERANCE_DEG
+        ))
+        self.hold_velocity_tolerance = float(
+            hold_velocity_tolerance
+            if hold_velocity_tolerance is not None
+            else self.DEFAULT_HOLD_VELOCITY_TOLERANCE
+        )
         self.hold_steps_required = 20                      # ~0.2 s hold — achievable in one episode
         self.gradient_scale = 5.0
 
@@ -151,6 +189,24 @@ class ArmTaskEnv(gym.Env):
         self.previous_total_error = float("inf")
         self.hold_counter = 0
         self.last_gradient = 0.0
+
+    def set_goal_tolerance(self, tolerance: float) -> None:
+        """Update the position tolerance used for the goal-reached check.
+
+        This is the entry point used by the adaptive curriculum scheduler
+        (Fischer et al., 2021, Sci. Rep. 11:14445), which begins training with
+        a wide tolerance (~0.6 m) and shrinks it toward the production value
+        (~0.02 m) as the agent's success rate over the recent episode window
+        exceeds a configured threshold (Fischer used 80 %).
+
+        The orientation and hold-velocity tolerances are intentionally NOT
+        scheduled by this method; only the position tolerance is curriculum-
+        controlled, matching the protocol in the source paper.
+        """
+        if tolerance <= 0.0:
+            raise ValueError(f"goal_tolerance must be positive, got {tolerance}")
+        self.height_tolerance = float(tolerance)
+        self.goal_tolerance = self.height_tolerance
 
     @staticmethod
     def _angle_normalize(angle: float) -> float:
