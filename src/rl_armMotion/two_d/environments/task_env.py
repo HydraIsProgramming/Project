@@ -208,6 +208,51 @@ class ArmTaskEnv(gym.Env):
         self.height_tolerance = float(tolerance)
         self.goal_tolerance = self.height_tolerance
 
+    def set_goal_position(self, position) -> None:
+        """Place the goal at an arbitrary 2D point in the workspace frame.
+
+        This is the entry point used by the Fitts' Law validation harness
+        (Fischer et al., 2021, Sci. Rep. 11:14445), which sweeps a grid of
+        (distance, tolerance) conditions to test whether the trained policy's
+        movement-time response obeys MT = a + b * log2(2D/W) with a high R^2.
+
+        The goal_direction is set to "EXPLICIT" so that the Euclidean-distance
+        branch of _compute_goal_distance is taken (the legacy "HEIGHT" branch
+        only measures vertical error, which is not appropriate for arbitrary
+        2D targets). The goal_axis is recomputed to point from the shoulder
+        toward the new goal so that the signed-error projection used by the
+        reward and observation code remains well-defined.
+
+        Parameters
+        ----------
+        position : array-like of shape (2,)
+            Target [x, y] coordinates in the workspace frame (the same frame
+            in which shoulder_base_position is expressed).
+        """
+        pos = np.asarray(position, dtype=np.float32).reshape(-1)
+        if pos.shape != (2,):
+            raise ValueError(
+                f"goal position must have shape (2,), got shape {pos.shape}"
+            )
+
+        self.goal_position = pos.copy()
+        self.goal_height = float(pos[1])
+        self.goal_direction = "EXPLICIT"
+
+        # Recompute the goal axis as a unit vector from the shoulder base to
+        # the goal. If the goal coincides with the shoulder, fall back to the
+        # +y axis to avoid a divide-by-zero.
+        delta = pos - self.shoulder_base_position
+        norm = float(np.linalg.norm(delta))
+        if norm > 1e-9:
+            self.goal_axis = (delta / norm).astype(np.float32)
+        else:
+            self.goal_axis = np.array([0.0, 1.0], dtype=np.float32)
+
+        # Target orientation aligns with the goal direction so the orientation
+        # term of the reward remains compatible with EXPLICIT goals.
+        self.target_orientation = float(np.arctan2(self.goal_axis[1], self.goal_axis[0]))
+
     @staticmethod
     def _angle_normalize(angle: float) -> float:
         """Wrap angle to [-pi, pi]."""
