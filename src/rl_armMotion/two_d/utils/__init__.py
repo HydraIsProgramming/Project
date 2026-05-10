@@ -24,6 +24,11 @@ from .arm_kinematics import (
     ArmState,
 )
 
+from .muscle_model import (
+    HillTypeMuscle,
+    MuscleParameters,
+)
+
 __all__ = [
     "ParallelEnvironmentRunner",
     "VectorEnvironment",
@@ -36,4 +41,6 @@ __all__ = [
     "ArmController",
     "MotionRecorder",
     "ArmState",
+    "HillTypeMuscle",
+    "MuscleParameters",
 ]

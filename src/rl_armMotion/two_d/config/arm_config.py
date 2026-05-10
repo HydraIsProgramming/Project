@@ -138,6 +138,69 @@ class ArmConfiguration:
                 inertias=[1.0] * 7,
                 damping=0.2,
             ),
+            # ----------------------------------------------------------
+            # 7-DOF biomechanically-proportioned upper-extremity arm,
+            # matching the kinematic structure used by Fischer, Hoinville,
+            # Eickhoff, and Lilienthal (2021), Sci. Rep. 11:14445, in
+            # their MuJoCo musculoskeletal model. The seven joints are:
+            #   0: shoulder flex/extension          (sagittal plane)
+            #   1: shoulder abduction/adduction     (frontal plane)
+            #   2: shoulder internal/external rot   (humeral long axis)
+            #   3: elbow flex/extension
+            #   4: forearm pronation/supination
+            #   5: wrist flex/extension
+            #   6: wrist radial/ulnar deviation
+            # Segment lengths follow the standard cadaveric proportions
+            # of Winter (2009), "Biomechanics and Motor Control of Human
+            # Movement", 4th ed.: humerus 30 cm, ulna+radius 27 cm, and
+            # hand+wrist 18 cm. Masses are anthropometric estimates for
+            # an average adult upper extremity.
+            #
+            # Note: this configuration carries the geometric and inertial
+            # parameters of Fischer's arm. Driving it through a true
+            # musculoskeletal simulation (with anatomically correct moment
+            # arms and Hill-type muscles per joint) requires the muscle
+            # model in rl_armMotion.two_d.utils.muscle_model and additional
+            # work on the environment side. As of this commit, this preset
+            # is data-ready but not yet wired into the 2-DOF training env.
+            # ----------------------------------------------------------
+            "7dof_fischer": cls(
+                dof=7,
+                name="7DOF_Fischer_Upper_Extremity",
+                link_lengths=[
+                    0.30,   # shoulder flex/ext   (humerus length)
+                    0.00,   # shoulder abd/add    (zero — shares axis w/ flex)
+                    0.00,   # shoulder int/ext rot(zero — purely rotational)
+                    0.27,   # elbow flex/ext      (forearm length)
+                    0.00,   # forearm prono/sup   (zero — purely rotational)
+                    0.18,   # wrist flex/ext      (hand length)
+                    0.00,   # wrist rad/uln dev   (zero — purely rotational)
+                ],
+                masses=[2.10, 0.10, 0.10, 1.20, 0.10, 0.40, 0.10],
+                inertias=[0.0210, 0.0010, 0.0008, 0.0080, 0.0006,
+                          0.0015, 0.0005],
+                damping=0.05,
+                # Joint limits per Fischer 2021 / typical anatomy (radians).
+                joint_limits_min=[
+                    np.deg2rad(-60.0),    # shoulder flex (-60)
+                    np.deg2rad(-45.0),    # shoulder abd  (-45)
+                    np.deg2rad(-90.0),    # shoulder rot  (-90)
+                    np.deg2rad(0.0),      # elbow         (0)
+                    np.deg2rad(-90.0),    # forearm pro   (-90)
+                    np.deg2rad(-70.0),    # wrist flex    (-70)
+                    np.deg2rad(-30.0),    # wrist dev     (-30)
+                ],
+                joint_limits_max=[
+                    np.deg2rad(180.0),    # shoulder flex (+180)
+                    np.deg2rad(180.0),    # shoulder abd  (+180)
+                    np.deg2rad(90.0),     # shoulder rot  (+90)
+                    np.deg2rad(150.0),    # elbow         (+150)
+                    np.deg2rad(90.0),     # forearm pro   (+90)
+                    np.deg2rad(70.0),     # wrist flex    (+70)
+                    np.deg2rad(30.0),     # wrist dev     (+30)
+                ],
+                velocity_limits=2.0,
+            ),
             "default": cls(),
         }
 
@@ -153,7 +216,15 @@ class ArmConfiguration:
     @staticmethod
     def list_presets() -> List[str]:
         """Get list of available preset names"""
-        return ["2dof_simple", "7dof_industrial", "simple_planar", "light_arm", "heavy_arm", "default"]
+        return [
+            "2dof_simple",
+            "7dof_industrial",
+            "7dof_fischer",
+            "simple_planar",
+            "light_arm",
+            "heavy_arm",
+            "default",
+        ]
 
     def get_joint_limits(self) -> np.ndarray:
         """Get joint limits as (dof, 2) array"""
