@@ -30,6 +30,16 @@ Train an RL policy that makes the arm:
 - Primary 2D code now lives under `rl_armMotion.two_d.*`.
 - Legacy import paths (`rl_armMotion.gui.*`, `rl_armMotion.environments.*`, etc.) are kept as compatibility wrappers.
 
+### Unified Launcher (recommended)
+- File: `src/rl_armMotion/two_d/gui/__main__.py`
+- A small launcher window that dispatches to the two GUIs below as
+  independent subprocesses, so each gets a clean Tk root.
+- Form fields for algorithm, timestep budget, and save directory are
+  filled with Fischer et al. (2021) defaults: SAC, 100k steps, save dir
+  `./project_assets/outputs/fischer_session`.
+- Closing the launcher does not terminate child processes (training runs
+  keep going).
+
 ### Training Dashboard GUI
 - File: `src/rl_armMotion/two_d/gui/training_gui.py`
 - Features:
@@ -61,13 +71,32 @@ pip install -e .
 
 ## 4. How To Run
 
-### 4.1 Launch Training GUI
+### 4.1 Launch the Unified Launcher (recommended)
+
+A single command opens a launcher window from which both GUIs can be
+started. The launcher's form fields default to the Fischer et al. (2021)
+training protocol implemented in this project (SAC + adaptive curriculum
++ motor babbling).
 
 ```bash
-python -m rl_armMotion.two_d.gui.training_gui --timesteps 100000 --algorithm PPO --save-dir ./project_assets/outputs/session_1
+python -m rl_armMotion.two_d.gui
 ```
 
-### 4.2 Launch Interactive Arm GUI
+From the launcher you can:
+- Click `Open Arm Control GUI` to spawn the interactive arm GUI.
+- Choose algorithm (SAC / PPO / A2C), timesteps, and save directory,
+  then click `Start Training GUI` to spawn the training dashboard.
+- Spawn either GUI multiple times in parallel; the launcher tracks live
+  PIDs in its status bar.
+- Quit the launcher at any time without killing running sessions.
+
+### 4.2 Launch Training GUI directly
+
+```bash
+python -m rl_armMotion.two_d.gui.training_gui --timesteps 100000 --algorithm SAC --save-dir ./project_assets/outputs/fischer_session
+```
+
+### 4.3 Launch Interactive Arm GUI directly
 
 ```bash
 python -m rl_armMotion.two_d.gui.app
